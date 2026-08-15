@@ -26,7 +26,7 @@ if( $gBitSystem->isPackageActive( 'food' ) ) {
 	];
 	$gBitSystem->registerAppMenu( $menuHash );
 
-	// content-type registration (FoodComponent/FoodAssembly/FoodMovement) and any
-	// service/hook registration (see stock/includes/bit_setup_inc.php for the pattern)
-	// belongs here once those classes exist — nothing to register yet.
+	// content-type registration lives in admin/schema_inc.php (registerContentObjects),
+	// not here — FoodComponent is registered there. Service/hook registration (see
+	// stock/includes/bit_setup_inc.php for the pattern) would go here if/when needed.
 }
