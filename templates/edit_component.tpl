@@ -23,6 +23,14 @@
 		{if $gContent->isValid()}
 			<p><a href="view_component.php?content_id={$gContent->mContentId}">{tr}Back to component{/tr}</a></p>
 		{/if}
+
+		{if $gXrefInfo && $gXrefInfo->mGroups}
+			{jstabs}
+				{foreach $gXrefInfo->mGroups as $group}
+					{include file=$gContent->getXrefListTemplate($group->mTemplate) xrefGroup=$group allow_edit=true allow_add=true}
+				{/foreach}
+			{/jstabs}
+		{/if}
 	</div>
 </div>
 {/strip}

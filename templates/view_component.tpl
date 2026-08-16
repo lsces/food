@@ -1,18 +1,20 @@
 {strip}
 <div class="display food">
-	<div class="header">
+	<header>
+		<div class="floaticon">
+			{if $gContent->hasUpdatePermission()}
+				<a title="{tr}Edit{/tr}" href="{$smarty.const.FOOD_PKG_URL}edit_component.php?content_id={$gContent->mContentId}">{biticon ipackage="icons" iname="edit" iexplain="Edit Component"}</a>
+			{/if}
+		</div>
 		<h1>{$gContent->getTitle()|escape}</h1>
-	</div>
+	</header>
 	<div class="body">
 		{if $gXrefInfo && $gXrefInfo->mGroups}
 			{jstabs}
 				{foreach $gXrefInfo->mGroups as $group}
-					{include file=$gContent->getXrefListTemplate($group->mTemplate) xrefGroup=$group allow_edit=true allow_add=true}
+					{include file=$gContent->getXrefListTemplate($group->mTemplate) xrefGroup=$group allow_edit=false}
 				{/foreach}
 			{/jstabs}
-		{/if}
-		{if $gContent->hasUpdatePermission()}
-			<p><a class="btn btn-default" href="edit_component.php?content_id={$gContent->mContentId}">{tr}Edit title{/tr}</a></p>
 		{/if}
 	</div>
 </div>

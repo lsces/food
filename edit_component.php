@@ -1,8 +1,9 @@
 <?php
 /**
- * Edit a FoodComponent's title. Individual xref values (nutrition scalars, quantity
- * types, REM's status/note) are edited via liberty's generic edit_xref.php, linked
- * directly from each row on view_component.php — nothing bespoke needed for those.
+ * Edit a FoodComponent — the title form, plus every xref group rendered editable
+ * (allow_edit=true, per-row Edit/Delete icons visible) via liberty's generic
+ * list_xref.tpl/edit_xref.php. view_component.php shows the same groups read-only
+ * (allow_edit=false) — matches Stock's own view/edit split exactly.
  *
  * @package food
  */
@@ -38,7 +39,10 @@ if( !empty( $_REQUEST['save'] ) ) {
 	}
 }
 
-$gBitSmarty->assign( 'gContent', $gContent );
-$gBitSmarty->assign( 'errors',   $gContent->mErrors );
+$gContent->loadXrefInfo();
+
+$gBitSmarty->assign( 'gContent',  $gContent );
+$gBitSmarty->assign( 'gXrefInfo', $gContent->mXrefInfo );
+$gBitSmarty->assign( 'errors',    $gContent->mErrors );
 
 $gBitSystem->display( 'bitpackage:food/edit_component.tpl', KernelTools::tra( 'Edit Component' ), [ 'display_mode' => 'edit' ] );
