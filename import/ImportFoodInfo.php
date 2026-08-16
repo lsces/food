@@ -11,11 +11,13 @@
  * Upsert keyed on datauuid (FoodComponent::lookupByDatauuid) via the DUID xref item;
  * rows whose update_time matches the existing content's last_modified are left alone.
  *
- * Nutrition is normalized to per-100g at import time (food_info's own basis varies per
- * row — 91g for plain Broccoli, already 100g for most branded items, 0/blank for many
- * ready-meals). Rows without a usable gram basis (metric_serving_amount 0/blank, or
- * metric_serving_unit not 'g') get a FoodComponent with title/DUID/PFID only — no
- * nutrition xrefs are guessed — and are flagged in curation_needed.csv instead.
+ * Nutrition is normalized to per-100g/ml at import time (food_info's own basis varies
+ * per row — 91g for plain Broccoli, already 100g for most branded items, 0/blank or a
+ * Samsung serving-count unit for many ready-meals). Rows without a usable weight/volume
+ * basis still get nutrition imported under an assumed 100g/ml basis (rough data beats
+ * none) — flagged both in curation_needed.csv and as a note in the component's REM
+ * xref data (no dedicated flag item; REM isn't used for anything else yet). Missing
+ * FIBR gets the same treatment.
  *
  * @package food
  */
@@ -221,22 +223,26 @@ function foodImportFoodInfoRow( array $pRow, int $pRowNum, array &$pResult, bool
 	// 'g' (weight) and 'ml' (volume) are both legitimate per-100-unit labeling bases —
 	// matches the WT/VOL split already in foodcomponent's quantity group. Samsung's own
 	// serving-count codes (e.g. metric_serving_unit='120001') and amount=0/blank are
-	// the genuine no-basis case.
+	// the genuine no-basis case. Rather than leave nutrition empty, assume 100g/ml and
+	// import anyway (rough data beats none) — flagged via a note in REM's data instead
+	// of a dedicated xref item, since REM isn't used for anything yet.
 	$servingAmount = $pRow['metric_serving_amount'] ?? '';
 	$servingUnit   = strtolower( trim( (string)( $pRow['metric_serving_unit'] ?? '' ) ) );
 	$hasUsableBasis = is_numeric( $servingAmount ) && (float)$servingAmount > 0 && in_array( $servingUnit, [ 'g', 'ml' ], true );
 
+	$curationNotes = [];
 	if( !$hasUsableBasis ) {
+		$curationNotes[] = "assumed 100g/ml basis (source amount='$servingAmount', unit='$servingUnit')";
 		$pResult['flagged'][] = [
 			'title'    => $title,
 			'datauuid' => $datauuid,
-			'reason'   => "no weight/volume basis (metric_serving_amount='$servingAmount', unit='$servingUnit') — nutrition not imported",
+			'reason'   => "nutrition assumed 100g/ml (source amount='$servingAmount', unit='$servingUnit') — needs checking",
 		];
-		return;
 	}
+	$effectiveServingAmount = $hasUsableBasis ? $servingAmount : 100;
 
 	// CAL — kcal, not a mass, no *1000
-	$cal = foodNormalizePer100g( $pRow['calorie'] ?? null, $servingAmount );
+	$cal = foodNormalizePer100g( $pRow['calorie'] ?? null, $effectiveServingAmount );
 	if( $cal !== null ) {
 		$storeXref( 'CAL', (int)round( $cal ) );
 	}
@@ -250,7 +256,7 @@ function foodImportFoodInfoRow( array $pRow, int $pRowNum, array &$pResult, bool
 		'sugar'         => 'SUGR',
 	];
 	foreach( $scalarGramFields as $csvField => $item ) {
-		$g = foodNormalizePer100g( $pRow[$csvField] ?? null, $servingAmount );
+		$g = foodNormalizePer100g( $pRow[$csvField] ?? null, $effectiveServingAmount );
 		if( $g !== null ) {
 			$storeXref( $item, (int)round( $g * 1000 ) );
 		}
@@ -258,7 +264,7 @@ function foodImportFoodInfoRow( array $pRow, int $pRowNum, array &$pResult, bool
 
 	// SOD — sodium is already mg-scale in food_info, not grams (confirmed against real
 	// values, e.g. banana sodium=1mg matches USDA), so no *1000 here.
-	$sod = foodNormalizePer100g( $pRow['sodium'] ?? null, $servingAmount );
+	$sod = foodNormalizePer100g( $pRow['sodium'] ?? null, $effectiveServingAmount );
 	if( $sod !== null ) {
 		$storeXref( 'SOD', (int)round( $sod ) );
 	}
@@ -273,12 +279,12 @@ function foodImportFoodInfoRow( array $pRow, int $pRowNum, array &$pResult, bool
 		'trans_fat'         => 'trans_mg',
 	];
 	foreach( $fatGramFields as $csvField => $key ) {
-		$g = foodNormalizePer100g( $pRow[$csvField] ?? null, $servingAmount );
+		$g = foodNormalizePer100g( $pRow[$csvField] ?? null, $effectiveServingAmount );
 		if( $g !== null ) {
 			$fat[$key] = (int)round( $g * 1000 );
 		}
 	}
-	$chol = foodNormalizePer100g( $pRow['cholesterol'] ?? null, $servingAmount );
+	$chol = foodNormalizePer100g( $pRow['cholesterol'] ?? null, $effectiveServingAmount );
 	if( $chol !== null ) {
 		$fat['cholesterol_mg'] = (int)round( $chol );
 	}
@@ -296,7 +302,7 @@ function foodImportFoodInfoRow( array $pRow, int $pRowNum, array &$pResult, bool
 		'iron'      => 'iron_mg',
 	];
 	foreach( $minMgFields as $csvField => $key ) {
-		$v = foodNormalizePer100g( $pRow[$csvField] ?? null, $servingAmount );
+		$v = foodNormalizePer100g( $pRow[$csvField] ?? null, $effectiveServingAmount );
 		if( $v !== null ) {
 			$min[$key] = (int)round( $v );
 		}
@@ -311,15 +317,15 @@ function foodImportFoodInfoRow( array $pRow, int $pRowNum, array &$pResult, bool
 	// confirmed — spot-check after first import). Unit-suffixed keys, not one
 	// blob-wide unit.
 	$vit = [];
-	$va = foodNormalizePer100g( $pRow['vitamin_a'] ?? null, $servingAmount );
+	$va = foodNormalizePer100g( $pRow['vitamin_a'] ?? null, $effectiveServingAmount );
 	if( $va !== null ) {
 		$vit['vitamin_a_mcg'] = (int)round( $va );
 	}
-	$vc = foodNormalizePer100g( $pRow['vitamin_c'] ?? null, $servingAmount );
+	$vc = foodNormalizePer100g( $pRow['vitamin_c'] ?? null, $effectiveServingAmount );
 	if( $vc !== null ) {
 		$vit['vitamin_c_mg'] = (int)round( $vc );
 	}
-	$vd = foodNormalizePer100g( $pRow['vitamin_d'] ?? null, $servingAmount );
+	$vd = foodNormalizePer100g( $pRow['vitamin_d'] ?? null, $effectiveServingAmount );
 	if( $vd !== null ) {
 		$vit['vitamin_d_mcg'] = (int)round( $vd );
 	}
@@ -328,10 +334,20 @@ function foodImportFoodInfoRow( array $pRow, int $pRowNum, array &$pResult, bool
 	}
 
 	if( ( $pRow['dietary_fiber'] ?? '' ) === '' ) {
+		$curationNotes[] = 'FIBR missing from source';
 		$pResult['flagged'][] = [
 			'title'    => $title,
 			'datauuid' => $datauuid,
 			'reason'   => 'FIBR missing from source',
 		];
+	}
+
+	// Curation flags live as a free-text note in REM's data — no dedicated xref item,
+	// REM isn't used for anything else yet (no FoodMovement/stocktake exists), and a
+	// separate flag item would just be another thing to check when REM starts being
+	// used for real. Whoever eventually reads REM for stock purposes should expect
+	// this note may still be sitting there until someone curates it away.
+	if( $curationNotes ) {
+		$storeXref( 'REM', null, null, implode( '; ', $curationNotes ) );
 	}
 }
