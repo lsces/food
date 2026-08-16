@@ -15,6 +15,13 @@
 				{/forminput}
 			</div>
 
+			<div class="form-group">
+				{formlabel label="Notes" for="component-notes"}
+				{forminput}
+					<textarea name="edit" class="form-control" id="component-notes" rows="4">{$gContent->mInfo.data|escape}</textarea>
+				{/forminput}
+			</div>
+
 			<div class="form-group submit">
 				<input type="submit" class="btn btn-primary" name="save" value="{tr}Save{/tr}" />
 			</div>

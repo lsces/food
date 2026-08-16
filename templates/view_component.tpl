@@ -9,6 +9,10 @@
 		<h1>{$gContent->getTitle()|escape}</h1>
 	</header>
 	<div class="body">
+		{if $gContent->mInfo.data ne ''}
+			<div class="description">{$gContent->mInfo.data}</div>
+		{/if}
+
 		{if $gXrefInfo && $gXrefInfo->mGroups}
 			{jstabs}
 				{foreach $gXrefInfo->mGroups as $group}
