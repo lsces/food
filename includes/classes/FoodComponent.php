@@ -138,6 +138,14 @@ class FoodComponent extends LibertyContent {
 		if( $this->isValid() ) {
 			$pParamHash['content_id'] = $this->mContentId;
 		}
+		// Notes is always plain text, never rich HTML — forced regardless of the
+		// site's default_format (bithtml), since there's no CKEditor on this field,
+		// just a bare textarea. 'simpletext' is the actual registered plugin guid
+		// (liberty/plugins/format.simpletext.php) — its verify_function stores 'edit'
+		// as-is (no wrapping needed), its load_function does nl2br(htmlentities()) at
+		// display time, so plain multi-line notes render safely without needing HTML
+		// hand-written into the stored data.
+		$pParamHash['format_guid'] = 'simpletext';
 		if( empty( $pParamHash['title'] ) ) {
 			$this->mErrors['title'] = 'A title is required.';
 		}

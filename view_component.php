@@ -33,6 +33,11 @@ if( !$gContent->isValid() ) {
 $gContent->verifyViewPermission();
 
 $gContent->loadXrefInfo();
+// Populates mInfo['parsed_data'] via the format plugin (simpletext — see
+// FoodComponent::verifyComponentData()) so the template shows safely rendered
+// notes (escaped + line breaks) rather than raw stored text or, worse, raw HTML
+// from before the format was forced. Same convention as stock/view_component.tpl.
+$gContent->getParsedData();
 
 $gBitSmarty->assign( 'gContent',  $gContent );
 $gBitSmarty->assign( 'gXrefInfo', $gContent->mXrefInfo );

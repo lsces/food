@@ -382,7 +382,11 @@ function foodImportFoodInfoRow( array $pRow, int $pRowNum, array &$pResult, bool
 	if( $curationNotes ) {
 		// verifyComponentData() requires 'title' on every store() call, not just
 		// create — re-pass the same title, otherwise this update fails validation.
-		$noteHash = [ 'content_id' => $contentId, 'title' => $title, 'edit' => '<p>'.implode( '; ', $curationNotes ).'</p>' ];
+		// Plain text, no <p> wrapper — format_guid is forced to 'simpletext' in
+		// FoodComponent::verifyComponentData(), which renders line breaks itself at
+		// display time (nl2br), so hand-written HTML here would just show up as
+		// literal escaped tags instead of being rendered.
+		$noteHash = [ 'content_id' => $contentId, 'title' => $title, 'edit' => implode( '; ', $curationNotes ) ];
 		$component->store( $noteHash );
 		$storeXref( 'REM', null, 'CORRECT' );
 	}

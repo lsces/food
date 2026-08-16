@@ -10,7 +10,7 @@
 	</header>
 	<div class="body">
 		{if $gContent->mInfo.data ne ''}
-			<div class="description">{$gContent->mInfo.data}</div>
+			<div class="description">{$gContent->mInfo.parsed_data}</div>
 		{/if}
 
 		{if $gXrefInfo && $gXrefInfo->mGroups}
