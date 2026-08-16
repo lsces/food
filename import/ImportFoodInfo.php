@@ -13,9 +13,13 @@
  *
  * Nutrition is normalized to per-100g/ml at import time (food_info's own basis varies
  * per row — 91g for plain Broccoli, already 100g for most branded items, 0/blank or a
- * Samsung serving-count unit for many ready-meals). Rows without a usable weight/volume
- * basis still get nutrition imported under an assumed 100g/ml basis (rough data beats
- * none) — flagged in curation_needed.csv, with the reason written to the component's
+ * Samsung serving-count unit for many ready-meals). The same g/ml basis also sets the
+ * component's own WT/VOL type marker (quantity group) — this is what lets
+ * FoodAssembly::getItems() display the right unit after an ingredient's quantity.
+ * Rows without a usable weight/volume basis still get nutrition imported under an
+ * assumed 100g/ml basis (rough data beats none), but get no WT/VOL marker (an assumed
+ * basis doesn't actually tell us weight vs volume) — flagged in curation_needed.csv,
+ * with the reason written to the component's
  * own liberty_content.data (visible on view_component.php) and a bare REM xref row
  * (flag-only, no data payload) marking it. xkey_ext='CORRECT' is the outstanding-work
  * flag itself — "this needs correcting" — set by the importer at import time and
@@ -263,6 +267,17 @@ function foodImportFoodInfoRow( array $pRow, int $pRowNum, array &$pResult, bool
 		];
 	}
 	$effectiveServingAmount = $hasUsableBasis ? $servingAmount : 100;
+
+	// Declare the component's own WT/VOL type marker (foodcomponent's quantity group)
+	// from the same serving-unit basis just used for nutrition normalization — this
+	// is what lets FoodAssembly::getItems() show the right unit (g/ml) after an
+	// ingredient's quantity. Only written when $hasUsableBasis is real (not the
+	// assumed-100g/ml curation case) — an assumed basis doesn't actually tell us
+	// weight vs volume, so leaving the marker unset (no unit shown) is more honest
+	// than guessing, same spirit as the REM curation flag on these rows.
+	if( $hasUsableBasis ) {
+		$storeXref( $servingUnit === 'ml' ? 'VOL' : 'WT' );
+	}
 
 	// CAL — kcal, not a mass, no *1000
 	$cal = foodNormalizePer100g( $pRow['calorie'] ?? null, $effectiveServingAmount );

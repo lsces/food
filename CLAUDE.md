@@ -111,6 +111,13 @@ Entirely separate axis from nutrition above — don't conflate them. Built in `s
 - `WT` — weight in grams — new, Stock's `SHT` (sheet-cutting, PCB-specific) doesn't fit food; no
   food use for `SHT` has come up yet either
 - `VOL` — volume in ml, reused from Stock as-is
+- **`WT`/`VOL` are set by `import/ImportFoodInfo.php`** from `food_info.csv`'s own
+  `metric_serving_amount`/`unit` (the same basis nutrition gets normalized against) — added
+  2026-08-16 after finding the write was never actually wired up despite being the documented
+  design (only 1 component in the live DB had a `WT` row, 0 had `SGL`/`VOL`, found while adding a
+  unit suffix to `FoodAssembly`'s ingredient display). Only written when that basis is real, not
+  the assumed-100g/ml curation case — an assumed basis doesn't tell us weight vs volume. `SGL` is
+  never set by the importer (Samsung has no per-unit/count concept) — hand-set only.
 - `PCK` — not a competing type, a stored pack-size multiplier (`template='value'`, matching
   Stock's own distinction) feeding into whichever of `SGL`/`WT`/`VOL` the component uses
 - `REM` — live remaining balance in the component's own declared type. **Stored/mutable, not
