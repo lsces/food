@@ -53,6 +53,7 @@ class FoodAssembly extends LibertyContent {
 		$this->mCreateContentPerm = 'p_food_create';
 		$this->mUpdateContentPerm = 'p_food_update';
 		$this->mAdminContentPerm  = 'p_food_admin';
+		$this->mExpungeContentPerm = 'p_food_expunge';
 	}
 
 	/**

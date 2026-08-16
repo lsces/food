@@ -39,6 +39,12 @@ if( !empty( $_REQUEST['save'] ) ) {
 	}
 }
 
+// New-component prefill from add_assembly_item.php's "not found, create it" redirect
+// (?title=...) — matches stock/edit_component.php's own convention.
+if( !$gContent->isValid() && !empty( $_REQUEST['title'] ) ) {
+	$gContent->mInfo['title'] = trim( $_REQUEST['title'] );
+}
+
 $gContent->loadXrefInfo();
 
 $gBitSmarty->assign( 'gContent',  $gContent );
