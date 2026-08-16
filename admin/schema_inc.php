@@ -50,6 +50,10 @@ $xrefItems = [];
 // than a schema column, so re-import can dedupe/upsert on it without needing a table.
 $xrefTypes[] = "INSERT INTO `{$X}liberty_xref_group` (`x_group`,`content_type_guid`,`title`,`sort_order`,`role_id`,`type_href`,`template`) VALUES ('external','food','External Reference',0,3,'','')";
 $xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('DUID','food','external','Samsung Health datauuid',0,3,'','text',NULL)";
+// PFID = food_info.provider_food_id verbatim ('fatsecret-<id>' or 'quickinput-<uuid>').
+// Provenance ('is this a hand-entered fix') is a prefix check on this at query/curation
+// time, not a separate stored flag — see project_food_package_scoping memory.
+$xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('PFID','food','external','Samsung Health provider_food_id',0,3,'','text',NULL)";
 
 // ── foodcomponent-specific group (sort_order=1: nutrition) ─────────────────────────
 // All values are per-100g, curated at import time from food_info.csv's raw per-serving

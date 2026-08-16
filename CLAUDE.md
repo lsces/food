@@ -103,6 +103,23 @@ Entirely separate axis from nutrition above — don't conflate them. Built in `s
   derived by summing FoodMovement** — deliberate divergence from Stock's always-aggregate
   `list_stock.php` model, because Food's ledger is known-incomplete (no historical movement_out).
 
+## food_info importer notes (2026-08-16)
+
+`create_time`/`update_time` map straight to `liberty_content`'s created/last_modified.
+
+`provider_food_id` → `PFID` xref item (`external` group, alongside `DUID`), raw text. Its
+`quickinput-`/`fatsecret-`/`default-fatsecret-` prefix is the provenance signal (`custom`/
+`info_provider` are blank on every quickinput row, not usable). **Quickinput entries are
+deliberate manual fixes for a fatsecret data gap** (Samsung's edit UI can't fix an existing entry
+in place, so a new one gets added instead) — don't treat `quickinput-` as generically
+lower-quality for curation-review purposes. The UUID inside `provider_food_id` has no relational
+role anywhere (`food_intake.food_info_id` always matches `food_info.datauuid`, confirmed
+directly, never the `provider_food_id` UUID).
+
+**Only import `food_info` rows referenced by at least one `food_intake.food_info_id`** — build
+that reference set first, skip unreferenced rows (abandoned duplicates from the edit-workaround
+above do occur, confirmed one directly).
+
 ## Data source: Samsung Health export
 
 No live API — periodic manual full-CSV re-export. `~/Personal/Health/Samsung Health/` holds one
