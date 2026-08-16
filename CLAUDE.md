@@ -116,6 +116,21 @@ Entirely separate axis from nutrition above — don't conflate them. Built in `s
 - `REM` — live remaining balance in the component's own declared type. **Stored/mutable, not
   derived by summing FoodMovement** — deliberate divergence from Stock's always-aggregate
   `list_stock.php` model, because Food's ledger is known-incomplete (no historical movement_out).
+  **Also doing double duty as the curation-progress tag until FoodMovement needs it for real**:
+  `xkey_ext` = `'CORRECT'` once a human has checked/fixed the component (set by hand, no edit UI
+  yet) — the only field `list_corrections.php` reads to decide what's outstanding. `data` = a
+  free-text note, decoupled from that status (starts as the importer's own curation reason, but
+  editable/replaceable at any time without affecting the report).
+
+### Curation progress: `list_corrections.php`
+Live DB report (not a CSV dump) — joins `foodcomponent` against its `REM` xref, ranks by how many
+`FoodAssembly` item-xref rows reference each one (`xref`=content_id, across
+`BREAKFAST`/`LUNCH`/`DINNER`/`MSNK`/`ESNK`), so the highest-impact fixes surface first. Confirmed
+useful in practice: 1109 flagged `food_intake` rows traced back to only 270 distinct components,
+top 2 alone a third of all flags — nearly all rooted in the same cause (`food_info`'s own
+`metric_serving_amount`/`unit` being a Samsung serving-code or blank, no real gram weight
+anywhere in the chain). **The importer never clears its own flags** — it's a one-time migration,
+no future re-import to trigger that, so `xkey_ext='CORRECT'` is always a manual step.
 
 ## food_info importer notes (2026-08-16)
 

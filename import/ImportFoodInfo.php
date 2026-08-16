@@ -345,8 +345,11 @@ function foodImportFoodInfoRow( array $pRow, int $pRowNum, array &$pResult, bool
 	// Curation flags live as a free-text note in REM's data — no dedicated xref item,
 	// REM isn't used for anything else yet (no FoodMovement/stocktake exists), and a
 	// separate flag item would just be another thing to check when REM starts being
-	// used for real. Whoever eventually reads REM for stock purposes should expect
-	// this note may still be sitting there until someone curates it away.
+	// used for real. This importer is a one-time migration (no reason to ever re-run
+	// it against a corrected export — see project_food_package_scoping memory), so it
+	// only ever writes a flag, never clears one — clearing is a manual step when a
+	// component gets corrected directly (see xkey_ext='CORRECT' convention, marked by
+	// hand, not by this importer).
 	if( $curationNotes ) {
 		$storeXref( 'REM', null, null, implode( '; ', $curationNotes ) );
 	}
