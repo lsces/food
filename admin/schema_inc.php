@@ -52,25 +52,52 @@ $xrefTypes[] = "INSERT INTO `{$X}liberty_xref_group` (`x_group`,`content_type_gu
 $xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('DUID','food','external','Samsung Health datauuid',0,3,'','text',NULL)";
 
 // ── foodcomponent-specific group (sort_order=1: nutrition) ─────────────────────────
+// All values are per-100g, curated at import time from food_info.csv's raw per-serving
+// figures (value/metric_serving_amount*100) — Samsung's own basis varies per row (91g
+// for plain Broccoli, 100g already for most branded/packaged items, 0/blank — no gram
+// basis at all, mostly ready-meals/restaurant dishes — for ~76/1202 rows in the
+// 2026-08-14 export). Rows without a usable gram basis are flagged for manual
+// portion-weight curation rather than guessed. Scalar values are integer milligrams
+// (exact vs. Samsung's own decimal-gram precision, confirmed lossless — see
+// project_food_package_scoping memory); FAT/VIT/MIN compound JSON values are integer
+// micrograms throughout (mg would round vitamin D etc. to zero — confirmed against
+// real data, e.g. Kipper vitamin_d=15 is 15mcg not 15mg).
 $xrefTypes[] = "INSERT INTO `{$X}liberty_xref_group` (`x_group`,`content_type_guid`,`title`,`sort_order`,`role_id`,`type_href`,`template`) VALUES ('nutrition','foodcomponent','Nutrition',1,3,'','')";
 
 // Scalar nutrition items — worth individually browsing/sorting/tidying, own row each.
 // FIBR deliberately promoted alongside PROT (Samsung's own app buries it; Lester rates
 // it more useful day-to-day). SOD kept scalar rather than folded into a mineral blob —
 // also feeds the Health package's blood-pressure tracking.
-$xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('CAL', 'foodcomponent','nutrition','Calories',      0,3,'','text',NULL)";
-$xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('PROT','foodcomponent','nutrition','Protein',       0,3,'','text',NULL)";
-$xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('CARB','foodcomponent','nutrition','Carbohydrate',  0,3,'','text',NULL)";
-$xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('FIBR','foodcomponent','nutrition','Fibre',         0,3,'','text',NULL)";
-$xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('SUGR','foodcomponent','nutrition','Sugar',         0,3,'','text',NULL)";
-$xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('SOD', 'foodcomponent','nutrition','Sodium',        0,3,'','text',NULL)";
+$xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('CAL', 'foodcomponent','nutrition','Calories (kcal, per 100g)',     0,3,'','text',NULL)";
+$xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('PROT','foodcomponent','nutrition','Protein (mg, per 100g)',       0,3,'','text',NULL)";
+$xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('CARB','foodcomponent','nutrition','Carbohydrate (mg, per 100g)',  0,3,'','text',NULL)";
+$xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('FIBR','foodcomponent','nutrition','Fibre (mg, per 100g)',         0,3,'','text',NULL)";
+$xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('SUGR','foodcomponent','nutrition','Sugar (mg, per 100g)',         0,3,'','text',NULL)";
+$xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('SOD', 'foodcomponent','nutrition','Sodium (mg, per 100g)',        0,3,'','text',NULL)";
 
 // Compound nutrition items — long-tail fields nobody browses individually, one row
-// each, JSON payload in liberty_xref.data. No generic JSON-xref mechanism exists in
-// liberty yet, so 'json' is a food-package-local template (still to build) rather
-// than a liberty one — see project_food_package_scoping memory.
-$xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('FAT','foodcomponent','nutrition','Fat (breakdown)',     0,3,'','json',NULL)";
-$xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('VIT','foodcomponent','nutrition','Vitamins',            0,3,'','json',NULL)";
-$xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('MIN','foodcomponent','nutrition','Minerals',            0,3,'','json',NULL)";
+// each, JSON payload in liberty_xref.data (integer micrograms throughout). No generic
+// JSON-xref mechanism exists in liberty yet, so 'json' is a food-package-local
+// template (still to build) rather than a liberty one — see
+// project_food_package_scoping memory.
+$xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('FAT','foodcomponent','nutrition','Fat breakdown (mcg, per 100g)',   0,3,'','json',NULL)";
+$xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('VIT','foodcomponent','nutrition','Vitamins (mcg, per 100g)',       0,3,'','json',NULL)";
+$xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('MIN','foodcomponent','nutrition','Minerals (mcg, per 100g)',       0,3,'','json',NULL)";
+
+// ── foodcomponent-specific group (sort_order=2: quantity) — pantry/movement tracking,
+// entirely separate from the nutrition group above. Modeled on Stock's SGL/PCK/SHT/VOL
+// (stock_component quantity group), adapted for food: SHT (sheet-cutting, PCB-specific)
+// doesn't apply here; WT (weight) is new, no food-related use has come up in Stock
+// itself yet either. A component declares ONE of SGL/WT/VOL as its own tracking type —
+// PCK is NOT a competing type (mirrors Stock's own template='value' distinction), it's
+// a stored pack-size multiplier feeding into whichever type the component actually
+// uses (e.g. eggs: PCK=6 feeding SGL; cereal: PCK≈500 feeding WT).
+$xrefTypes[] = "INSERT INTO `{$X}liberty_xref_group` (`x_group`,`content_type_guid`,`title`,`sort_order`,`role_id`,`type_href`,`template`) VALUES ('quantity','foodcomponent','Quantity',2,3,'','')";
+
+$xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('SGL','foodcomponent','quantity','Single unit (count)', 0,3,'','text', NULL)";
+$xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('WT', 'foodcomponent','quantity','Weight (g)',           0,3,'','text', NULL)";
+$xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('VOL','foodcomponent','quantity','Volume (ml)',          0,3,'','text', NULL)";
+$xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('PCK','foodcomponent','quantity','Pack size',            0,3,'','value',NULL)";
+$xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('REM','foodcomponent','quantity','Remaining stock',      0,3,'','value',NULL)";
 
 $gBitInstaller->registerSchemaDefault( FOOD_PKG_NAME, array_merge( $xrefTypes, $xrefItems ) );
