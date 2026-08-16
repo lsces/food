@@ -9,7 +9,7 @@
 		<p>
 			<strong>{$created}</strong> {tr}created{/tr}.
 			<strong>{$updated}</strong> {tr}updated{/tr}.
-			<strong>{$unchanged}</strong> {tr}unchanged{/tr}.
+			<strong>{$unchanged|default:0}</strong> {tr}unchanged{/tr}.
 			<strong>{$skipped}</strong> {tr}skipped{/tr}.
 		</p>
 
@@ -24,7 +24,7 @@
 
 		{if $flagged}
 			<h3>{tr}Flagged for curation{/tr}</h3>
-			<p>{tr}Also written to{/tr} <code>storage/food/curation_needed.csv</code></p>
+			<p>{tr}Also written to{/tr} <code>{$curationFile|default:"storage/food/curation_needed.csv"|escape}</code></p>
 			<table class="table table-condensed">
 				<thead><tr><th>{tr}Title{/tr}</th><th>{tr}Reason{/tr}</th></tr></thead>
 				<tbody>

@@ -1,9 +1,13 @@
 <?php
 
-// No tables — FoodComponent is a pure liberty_content record, content_id only, no
-// component-id-alias table (see Claude memory feedback_content_id_only: Stock's own
+// No tables — FoodComponent and FoodAssembly are both pure liberty_content records,
+// content_id only (see Claude memory feedback_content_id_only: Stock's own
 // stock_component/stock_assembly tables were retired 2026-06-01 for the same reason).
-// FoodAssembly/FoodMovement are still to design.
+// FoodAssembly's line items are plain multi=1 liberty_xref rows, not a map table —
+// stock_assembly_map turned out not to be Stock's live BOM-quantity mechanism either
+// (its own stockassembly quantity items are multi=0, structurally can't hold more than
+// one row per type per assembly) once actually checked, not assumed. FoodMovement is
+// still to design.
 
 global $gBitInstaller;
 
@@ -28,6 +32,7 @@ $gBitInstaller->registerUserPermissions( FOOD_PKG_NAME, [
 // ### Register content types
 $gBitInstaller->registerContentObjects( FOOD_PKG_NAME, [
 	'FoodComponent' => FOOD_PKG_CLASS_PATH.'FoodComponent.php',
+	'FoodAssembly'  => FOOD_PKG_CLASS_PATH.'FoodAssembly.php',
 ] );
 
 // ### Requirements
@@ -106,5 +111,30 @@ $xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,
 $xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('VOL','foodcomponent','quantity','Volume (ml)',          0,3,'','text', NULL)";
 $xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('PCK','foodcomponent','quantity','Pack size',            0,3,'','value',NULL)";
 $xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('REM','foodcomponent','quantity','Remaining stock',      0,3,'','value',NULL)";
+
+// ── foodassembly group (sort_order=0: 'type', not 'items' — 'items' reads as
+// confusingly close to liberty_xref_item itself) — a meal instance's ingredient
+// list. No separate classification xref — the item code itself IS the meal type
+// (confirmed with Lester 2026-08-16: collapse classification+line-items into one
+// mechanism, rather than a single classifying xref plus a separate generic 'ITEM'
+// line-item type). A Breakfast assembly's rows are all item='BREAKFAST'; which code
+// populated tells you the type, nothing else needed. Each row: xref=the
+// FoodComponent's content_id, xkey=grams quantity, xorder=position within the meal.
+// multi=1 lets many rows share the same item code on one assembly.
+//
+// meal_type mapping confirmed against real food_intake/nutrition data: 100001=
+// Breakfast, 100002=Lunch, 100003=Dinner, 100004=Morning snack, 100006=Evening snack
+// (100005 unused, a gap in Samsung's own scheme).
+//
+// RECIPE/FAVOURITE (and later MEAL, kitting-side like Stock's PBLD) follow the same
+// pattern later, once actually needed — not registered yet, food_intake import only
+// needs the five diary meal-types.
+$xrefTypes[] = "INSERT INTO `{$X}liberty_xref_group` (`x_group`,`content_type_guid`,`title`,`sort_order`,`role_id`,`type_href`,`template`) VALUES ('type','foodassembly','Type',0,3,'','')";
+
+$xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('BREAKFAST','foodassembly','type','Breakfast',      1,3,'','text',NULL)";
+$xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('LUNCH',    'foodassembly','type','Lunch',          1,3,'','text',NULL)";
+$xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('DINNER',   'foodassembly','type','Dinner',         1,3,'','text',NULL)";
+$xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('MSNK',     'foodassembly','type','Morning snack',  1,3,'','text',NULL)";
+$xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('ESNK',     'foodassembly','type','Evening snack',  1,3,'','text',NULL)";
 
 $gBitInstaller->registerSchemaDefault( FOOD_PKG_NAME, array_merge( $xrefTypes, $xrefItems ) );

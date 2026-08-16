@@ -1,11 +1,13 @@
 # Food Package — Developer Notes
 
-## Status (2026-08-16): FoodComponent built, food_info importer built, FoodAssembly/FoodMovement not started
+## Status (2026-08-16): FoodComponent + FoodAssembly built, food_info + food_intake importers built, FoodMovement not started
 
-`admin/schema_inc.php` (permissions, `registerContentObjects`, `external`/`nutrition`/`quantity`
-xref groups), `includes/classes/FoodComponent.php`, and `import/ImportFoodInfo.php` +
-`import/load_food_info.php` + `templates/import_results.tpl` written. Not yet installed/run on
-any site.
+`admin/schema_inc.php` (permissions, `registerContentObjects`, `external`/`nutrition`/`quantity`/
+`type` xref groups), `includes/classes/FoodComponent.php` + `FoodAssembly.php`, and
+`import/ImportFoodInfo.php`/`ImportFoodIntake.php` + `load_food_info.php`/`load_food_intake.php` +
+`templates/import_results.tpl` written. Installed and running on rdmcloud — `food_info` importer
+run successfully (1163 created); schema pushed by hand into the live DB while pre-production (see
+"Dev-stage schema workflow" below), not yet through a proper install/upgrade cycle.
 
 ## Architecture plan
 
@@ -19,31 +21,33 @@ may end up on different domains, and groceries shouldn't mix with electronics pa
   second sequential ID is pointless). The Samsung `datauuid` needed for re-import dedupe lives as
   a `DUID` xref item in a package-level `external` group instead of a schema column — same
   pattern as Stock's `KLID` (Kitlocker ID Code).
-- **FoodAssembly** (≈ StockAssembly) — **one content type, three roles**, distinguished by a
-  single classifying xref (mirrors StockMovement's `reference` group: REQN/PBLD/TRANS/ORDER):
-  - `RECIPE` — a reusable named dish (BOM of ingredients + quantities)
-  - `FAVOURITE` — a reusable named combo (the clean version of what `food_favorite` was reaching
-    for)
-  - `BREAKFAST`/`LUNCH`/`DINNER`/`MSNK`/`ESNK` — a **diary meal instance**, one per
-    `(start_time, meal_type)` group in `food_intake.csv` (all items eaten together share
-    identical `start_time`+`create_time` to the millisecond — that's the grouping key). "Day" is
-    a report/filter over these, not its own record — matches how `list_stock.php` already
-    aggregates Stock movements by date without a day object.
+- **FoodAssembly** (≈ StockAssembly, but no map table — see below) — **one content type, no
+  separate classification xref**. The meal-type code itself (`BREAKFAST`/`LUNCH`/`DINNER`/`MSNK`/
+  `ESNK`) IS the multi=1 `liberty_xref` item type that holds the ingredient list — a Breakfast
+  assembly's rows are all `item='BREAKFAST'`, which code populated tells you the type. Each row:
+  `xref`=the `FoodComponent`'s content_id, `xkey`=quantity (grams or ml, whatever the referenced
+  component's own base unit is), `xorder`=position. `RECIPE`/`FAVOURITE`/`MEAL` (kitting-side,
+  like Stock's `PBLD`) follow the same pattern later, not registered yet.
+  - **No `food_assembly_map` table** — first drafted one mirroring what looked like Stock's own
+    map-table BOM mechanism, corrected before writing it (see `stock/CLAUDE.md`'s own note on
+    `stock_assembly_map` for why that turned out not to be a pattern worth copying). Plain
+    multi=1 xref rows do the whole job here.
+  - One `FoodAssembly` per `(start_time, meal_type)` group in `food_intake.csv` (all items eaten
+    together share identical `start_time`+`create_time` to the millisecond — that's the grouping
+    key). The meal's actual eaten time lives in `liberty_content.event_time` (a real column,
+    distinct from `created`/`last_modified`) — same role Stock's own movement design already
+    established ("received from lc.event_time"). "Day" is a report/filter over these, not its own
+    record — matches how `list_stock.php` already aggregates Stock movements by date.
   - `meal_type` is a flat 5-value Samsung enum, not an xorder-thousands scheme: `100001`
     Breakfast, `100002` Lunch, `100003` Dinner, `100004` Morning snack, `100006` Evening snack
-    (`100005` unused). `xorder` is assigned independently at import to order items *within* one
-    meal (1,2,3,4), no thousands convention needed.
+    (`100005` unused).
   - `food_intake` ↔ `nutrition.csv`: **`nutrition.csv` is dropped as an import source entirely**
     (was going to be joined via `meal_type` + nearest `create_time`, no shared key existed — see
     project_food_package_scoping memory for the full join analysis if it's ever needed again for
     a different reason). Once `FoodComponent` nutrition is per-100g and `FoodAssembly` quantities
-    are plain grams, per-meal totals are computed (`Σ grams/100 × per_100g_value`), not imported —
+    are grams/ml, per-meal totals are computed (`Σ grams/100 × per_100g_value`), not imported —
     more trustworthy than Samsung's own snapshot once portions get hand-corrected anyway, and it
     removes that fragile join altogether.
-  - **`FoodAssembly` line items are always plain integer grams — no type code needed.** Every
-    ingredient amount in a meal/recipe is expressed the same way, unlike Stock's map which needs
-    `quantity_item` because `SGL`/`PCK`/`SHT`/`VOL` are genuinely different ongoing transaction
-    shapes for electronics. Food only has that multi-type problem on the *movement* side (below).
 - **FoodMovement** (≈ StockMovement) — the **pantry ledger**, kept separate from FoodAssembly
   (a diary meal instance says what was combined, FoodMovement says how much you actually have —
   different questions, don't collapse them). `movement_in` = a receipt (Lidl/Waitrose — zero

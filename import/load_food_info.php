@@ -82,5 +82,6 @@ $gBitSmarty->assign( 'unchanged', $result['unchanged'] );
 $gBitSmarty->assign( 'skipped',   $result['skipped'] );
 $gBitSmarty->assign( 'flagged',   $result['flagged'] );
 $gBitSmarty->assign( 'errors',    $result['errors'] );
+$gBitSmarty->assign( 'curationFile', $curationFile ?? 'storage/food/curation_needed.csv' );
 
 $gBitSystem->display( 'bitpackage:food/import_results.tpl', 'Import Food Info' );
