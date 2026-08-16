@@ -108,9 +108,19 @@ function foodNormalizePer100g( $pRawValue, $pServingAmount ): ?float {
 /**
  * Insert-or-update one liberty_xref row via LibertyXref::store() (the real API behind
  * the historical 'storeXref' memory note — always a named variable, it takes
- * &$pParamHash by reference). $pXkey/$pData null means "don't touch that column".
+ * &$pParamHash by reference). $pXkey/$pXkeyExt/$pData null means "don't touch that
+ * column"; params follow table column order (xkey, xkey_ext, data). $pXkey is
+ * `xkey C(32)` — short values only (mg-integers etc); anything that can run longer
+ * (UUIDs, provider_food_id) must go in $pXkeyExt (`xkey_ext C(250)`) instead —
+ * confirmed the hard way, xkey truncation is a Firebird fatal error (SQLSTATE 22001),
+ * not a silent cut.
+ *
+ * $pEntryDate/$pLastUpdateDate (unix timestamps) let the xref mirror the
+ * FoodComponent's own created/last_modified (the Samsung create_time/update_time)
+ * rather than the moment the importer happened to run — see liberty's
+ * LibertyXref::verify() override support, added alongside this.
  */
-function foodStoreXref( int $pContentId, string $pItem, $pXkey = null, $pData = null ): void {
+function foodStoreXref( int $pContentId, string $pItem, $pXkey = null, $pXkeyExt = null, $pData = null, ?int $pEntryDate = null, ?int $pLastUpdateDate = null ): void {
 	global $gBitDb;
 
 	$existingId = $gBitDb->getOne(
@@ -125,8 +135,17 @@ function foodStoreXref( int $pContentId, string $pItem, $pXkey = null, $pData = 
 	if( $pXkey !== null ) {
 		$pHash['xkey'] = (string)$pXkey;
 	}
+	if( $pXkeyExt !== null ) {
+		$pHash['xkey_ext'] = (string)$pXkeyExt;
+	}
 	if( $pData !== null ) {
 		$pHash['edit'] = $pData; // verify() maps 'edit' -> xref_store['data']
+	}
+	if( $pEntryDate !== null ) {
+		$pHash['entry_date'] = $pEntryDate;
+	}
+	if( $pLastUpdateDate !== null ) {
+		$pHash['last_update_date'] = $pLastUpdateDate;
 	}
 	if( $existingId ) {
 		$pHash['xref_id'] = (int)$existingId;
@@ -143,8 +162,12 @@ function foodStoreXref( int $pContentId, string $pItem, $pXkey = null, $pData = 
  * @param int   $pRowNum  1-based source line number, for error messages.
  * @param array &$pResult Accumulator: created/updated/unchanged/skipped counts,
  *                        flagged[] (curation queue), errors[].
+ * @param bool  $pForce   Reprocess even if update_time matches what's already stored
+ *                        — needed after an importer rule change, since "unchanged"
+ *                        is otherwise judged against the source data, not our own
+ *                        normalization logic.
  */
-function foodImportFoodInfoRow( array $pRow, int $pRowNum, array &$pResult ): void {
+function foodImportFoodInfoRow( array $pRow, int $pRowNum, array &$pResult, bool $pForce = false ): void {
 	$datauuid = trim( (string)( $pRow['datauuid'] ?? '' ) );
 	$title    = trim( (string)( $pRow['name'] ?? '' ) );
 	if( $datauuid === '' || $title === '' ) {
@@ -160,7 +183,7 @@ function foodImportFoodInfoRow( array $pRow, int $pRowNum, array &$pResult ): vo
 	$component = new FoodComponent( $existingContentId );
 	if( $existingContentId ) {
 		$component->load();
-		if( $updateTime !== null && (int)$component->getField( 'last_modified' ) === $updateTime ) {
+		if( !$pForce && $updateTime !== null && (int)$component->getField( 'last_modified' ) === $updateTime ) {
 			$pResult['unchanged']++;
 			return;
 		}
@@ -181,21 +204,33 @@ function foodImportFoodInfoRow( array $pRow, int $pRowNum, array &$pResult ): vo
 	$contentId = $component->mContentId;
 	$existingContentId ? $pResult['updated']++ : $pResult['created']++;
 
-	foodStoreXref( $contentId, 'DUID', $datauuid );
+	// Every xref written for this row shares the same entry_date/last_update_date —
+	// the Samsung record's own create_time/update_time, not import-run time.
+	$storeXref = function( string $pItem, $pXkey = null, $pXkeyExt = null, $pData = null ) use ( $contentId, $createTime, $updateTime ) {
+		foodStoreXref( $contentId, $pItem, $pXkey, $pXkeyExt, $pData, $createTime, $updateTime );
+	};
+
+	// datauuid (36 chars) and provider_food_id (up to ~48 chars for quickinput-<uuid>)
+	// both exceed xkey's 32-char limit — xkey_ext, not xkey.
+	$storeXref( 'DUID', null, $datauuid );
 	$pfid = trim( (string)( $pRow['provider_food_id'] ?? '' ) );
 	if( $pfid !== '' ) {
-		foodStoreXref( $contentId, 'PFID', $pfid );
+		$storeXref( 'PFID', null, $pfid );
 	}
 
+	// 'g' (weight) and 'ml' (volume) are both legitimate per-100-unit labeling bases —
+	// matches the WT/VOL split already in foodcomponent's quantity group. Samsung's own
+	// serving-count codes (e.g. metric_serving_unit='120001') and amount=0/blank are
+	// the genuine no-basis case.
 	$servingAmount = $pRow['metric_serving_amount'] ?? '';
 	$servingUnit   = strtolower( trim( (string)( $pRow['metric_serving_unit'] ?? '' ) ) );
-	$hasGramBasis  = is_numeric( $servingAmount ) && (float)$servingAmount > 0 && $servingUnit === 'g';
+	$hasUsableBasis = is_numeric( $servingAmount ) && (float)$servingAmount > 0 && in_array( $servingUnit, [ 'g', 'ml' ], true );
 
-	if( !$hasGramBasis ) {
+	if( !$hasUsableBasis ) {
 		$pResult['flagged'][] = [
 			'title'    => $title,
 			'datauuid' => $datauuid,
-			'reason'   => "no gram basis (metric_serving_amount='$servingAmount', unit='$servingUnit') — nutrition not imported",
+			'reason'   => "no weight/volume basis (metric_serving_amount='$servingAmount', unit='$servingUnit') — nutrition not imported",
 		];
 		return;
 	}
@@ -203,7 +238,7 @@ function foodImportFoodInfoRow( array $pRow, int $pRowNum, array &$pResult ): vo
 	// CAL — kcal, not a mass, no *1000
 	$cal = foodNormalizePer100g( $pRow['calorie'] ?? null, $servingAmount );
 	if( $cal !== null ) {
-		foodStoreXref( $contentId, 'CAL', (int)round( $cal ) );
+		$storeXref( 'CAL', (int)round( $cal ) );
 	}
 
 	// Scalar mg items — grams in food_info -> integer mg (lossless, confirmed against
@@ -217,7 +252,7 @@ function foodImportFoodInfoRow( array $pRow, int $pRowNum, array &$pResult ): vo
 	foreach( $scalarGramFields as $csvField => $item ) {
 		$g = foodNormalizePer100g( $pRow[$csvField] ?? null, $servingAmount );
 		if( $g !== null ) {
-			foodStoreXref( $contentId, $item, (int)round( $g * 1000 ) );
+			$storeXref( $item, (int)round( $g * 1000 ) );
 		}
 	}
 
@@ -225,7 +260,7 @@ function foodImportFoodInfoRow( array $pRow, int $pRowNum, array &$pResult ): vo
 	// values, e.g. banana sodium=1mg matches USDA), so no *1000 here.
 	$sod = foodNormalizePer100g( $pRow['sodium'] ?? null, $servingAmount );
 	if( $sod !== null ) {
-		foodStoreXref( $contentId, 'SOD', (int)round( $sod ) );
+		$storeXref( 'SOD', (int)round( $sod ) );
 	}
 
 	// FAT blob — sub-fields are grams (-> mg); cholesterol is already mg-scale
@@ -248,7 +283,7 @@ function foodImportFoodInfoRow( array $pRow, int $pRowNum, array &$pResult ): vo
 		$fat['cholesterol_mg'] = (int)round( $chol );
 	}
 	if( $fat ) {
-		foodStoreXref( $contentId, 'FAT', null, json_encode( $fat ) );
+		$storeXref( 'FAT', null, null, json_encode( $fat ) );
 	}
 
 	// MIN blob — food_info only supplies potassium/calcium/iron, all mg-scale (no
@@ -267,7 +302,7 @@ function foodImportFoodInfoRow( array $pRow, int $pRowNum, array &$pResult ): vo
 		}
 	}
 	if( $min ) {
-		foodStoreXref( $contentId, 'MIN', null, json_encode( $min ) );
+		$storeXref( 'MIN', null, null, json_encode( $min ) );
 	}
 
 	// VIT blob — mixed native units per sub-field, confirmed against real data:
@@ -289,7 +324,7 @@ function foodImportFoodInfoRow( array $pRow, int $pRowNum, array &$pResult ): vo
 		$vit['vitamin_d_mcg'] = (int)round( $vd );
 	}
 	if( $vit ) {
-		foodStoreXref( $contentId, 'VIT', null, json_encode( $vit ) );
+		$storeXref( 'VIT', null, null, json_encode( $vit ) );
 	}
 
 	if( ( $pRow['dietary_fiber'] ?? '' ) === '' ) {

@@ -79,11 +79,13 @@ class FoodComponent extends LibertyContent {
 		global $gBitDb;
 		// liberty_xref itself has no x_group column (only liberty_xref_item does) —
 		// join to scope the 'DUID' item lookup to the 'food' package rather than
-		// matching any package's same-named item.
+		// matching any package's same-named item. datauuid is a 36-char UUID, which
+		// exceeds xkey's 32-char limit (Firebird fatal, not a silent truncation) —
+		// stored/matched via xkey_ext instead, see ImportFoodInfo.php::foodStoreXref.
 		$contentId = $gBitDb->getOne(
 			"SELECT x.`content_id` FROM `".BIT_DB_PREFIX."liberty_xref` x
 				JOIN `".BIT_DB_PREFIX."liberty_xref_item` s ON s.`item` = x.`item` AND s.`content_type_guid` = 'food'
-				WHERE x.`item` = 'DUID' AND x.`xkey` = ?",
+				WHERE x.`item` = 'DUID' AND x.`xkey_ext` = ?",
 			[ $pDatauuid ]
 		);
 		return $contentId ? (int)$contentId : null;

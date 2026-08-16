@@ -26,7 +26,8 @@ $gBitSystem->verifyPermission( 'p_food_admin' );
 
 require_once __DIR__.'/ImportFoodInfo.php';
 
-$pair = foodFindLatestExportPair( FOOD_IMPORT_PATH );
+$pair  = foodFindLatestExportPair( FOOD_IMPORT_PATH );
+$force = ( ( $_REQUEST['force'] ?? '' ) === 'y' ); // reprocess even if update_time unchanged
 
 $result = [
 	'created'   => 0,
@@ -60,7 +61,7 @@ if( !$pair ) {
 			$result['skipped']++;
 			continue;
 		}
-		foodImportFoodInfoRow( $row, $rowNum, $result );
+		foodImportFoodInfoRow( $row, $rowNum, $result, $force );
 	}
 
 	if( $result['flagged'] ) {
