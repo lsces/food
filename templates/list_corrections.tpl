@@ -9,7 +9,7 @@
 			{tr}flagged components still outstanding{/tr}
 			{if $totalFlagged}({$percentDone}% {tr}done{/tr}){/if}.
 		</p>
-		<p>{tr}Mark a component done: open it, edit its REM row, set Notes to{/tr} <code>CORRECT</code>.</p>
+		<p>{tr}Mark a component done: open it and click the tick icon once it's fully fixed.{/tr}</p>
 
 		{if $corrections}
 			<table class="table table-condensed">

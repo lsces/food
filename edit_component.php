@@ -47,6 +47,19 @@ if( !$gContent->isValid() && !empty( $_REQUEST['title'] ) ) {
 
 $gContent->loadXrefInfo();
 
+// Tick floaticon on edit_component.tpl — one-click clear of the outstanding-
+// correction flag (see list_corrections.php's docblock). Needs loadXrefInfo()
+// already called above (getCorrectionXrefId() reads $gContent->mXrefInfo rather
+// than re-querying). Redirects back to the read-only view on success, same as a
+// normal save.
+if( !empty( $_REQUEST['clear_correct'] ) && $gContent->isValid() ) {
+	$gContent->verifyUpdatePermission();
+	if( $gContent->clearCorrectionFlag() ) {
+		header( 'Location: '.$gContent->getDisplayUrl() );
+		die;
+	}
+}
+
 $gBitSmarty->assign( 'gContent',  $gContent );
 $gBitSmarty->assign( 'gXrefInfo', $gContent->mXrefInfo );
 $gBitSmarty->assign( 'errors',    $gContent->mErrors );

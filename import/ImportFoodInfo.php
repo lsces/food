@@ -15,9 +15,13 @@
  * per row — 91g for plain Broccoli, already 100g for most branded items, 0/blank or a
  * Samsung serving-count unit for many ready-meals). Rows without a usable weight/volume
  * basis still get nutrition imported under an assumed 100g/ml basis (rough data beats
- * none) — flagged both in curation_needed.csv and as a note in the component's REM
- * xref data (no dedicated flag item; REM isn't used for anything else yet). Missing
- * FIBR gets the same treatment.
+ * none) — flagged in curation_needed.csv, with the reason written to the component's
+ * own liberty_content.data (visible on view_component.php) and a bare REM xref row
+ * (flag-only, no data payload) marking it. xkey_ext='CORRECT' is the outstanding-work
+ * flag itself — "this needs correcting" — set by the importer at import time and
+ * cleared by hand (edit_component.tpl's tick floaticon) once a component is actually
+ * fixed; see list_corrections.php's own docblock for the full semantics. Missing FIBR
+ * gets the same treatment.
  *
  * @package food
  */
@@ -222,9 +226,13 @@ function foodImportFoodInfoRow( array $pRow, int $pRowNum, array &$pResult, bool
 	$existingContentId ? $pResult['updated']++ : $pResult['created']++;
 
 	// Every xref written for this row shares the same entry_date/last_update_date —
-	// the Samsung record's own create_time/update_time, not import-run time.
-	$storeXref = function( string $pItem, $pXkey = null, $pXkeyExt = null, $pData = null ) use ( $contentId, $createTime, $updateTime ) {
-		foodStoreXref( $contentId, $pItem, $pXkey, $pXkeyExt, $pData, $createTime, $updateTime );
+	// the Samsung record's own create_time/update_time, not import-run time. Trimmed
+	// to date-only (no time-of-day) — precise time within the day was never useful
+	// here, only adds noise reading raw xref rows in isql/FlameRobin.
+	$createDate = $createTime !== null ? strtotime( gmdate( 'Y-m-d 00:00:00', $createTime ) ) : null;
+	$updateDate = $updateTime !== null ? strtotime( gmdate( 'Y-m-d 00:00:00', $updateTime ) ) : null;
+	$storeXref = function( string $pItem, $pXkey = null, $pXkeyExt = null, $pData = null ) use ( $contentId, $createDate, $updateDate ) {
+		foodStoreXref( $contentId, $pItem, $pXkey, $pXkeyExt, $pData, $createDate, $updateDate );
 	};
 
 	// datauuid (36 chars) and provider_food_id (up to ~48 chars for quickinput-<uuid>)
@@ -357,15 +365,25 @@ function foodImportFoodInfoRow( array $pRow, int $pRowNum, array &$pResult, bool
 		];
 	}
 
-	// Curation flags live as a free-text note in REM's data — no dedicated xref item,
-	// REM isn't used for anything else yet (no FoodMovement/stocktake exists), and a
-	// separate flag item would just be another thing to check when REM starts being
-	// used for real. This importer is a one-time migration (no reason to ever re-run
-	// it against a corrected export — see project_food_package_scoping memory), so it
-	// only ever writes a flag, never clears one — clearing is a manual step when a
-	// component gets corrected directly (see xkey_ext='CORRECT' convention, marked by
-	// hand, not by this importer).
+	// Curation flag: the human-readable reason goes straight onto the component's own
+	// liberty_content.data (wrapped in <p>, visible on view_component.php without
+	// digging into the xref tabs) — not REM's own data field, which was only ever a
+	// stopgap before this became the settled convention (see project_food_package_
+	// scoping memory, "REM's xkey_ext/data split"). REM itself gets a flag row (no
+	// data payload, that's on liberty_content.data now) with xkey_ext='CORRECT' —
+	// the outstanding-work flag itself, "this needs correcting", not "reviewed and
+	// accepted" (confirmed with Lester 2026-08-16 after a few rounds of me having the
+	// polarity backwards). list_corrections.php's query finds outstanding work by
+	// this flag directly (xkey_ext='CORRECT'), so a fresh import against a known
+	// export correctly re-flags every row still needing a look — that's the real,
+	// expected to-do list, not something that starts empty. Clearing the flag (edit_
+	// component.tpl's tick floaticon) is the only thing that marks a component done,
+	// same as Gelatelli's WT/PCK fix.
 	if( $curationNotes ) {
-		$storeXref( 'REM', null, null, implode( '; ', $curationNotes ) );
+		// verifyComponentData() requires 'title' on every store() call, not just
+		// create — re-pass the same title, otherwise this update fails validation.
+		$noteHash = [ 'content_id' => $contentId, 'title' => $title, 'edit' => '<p>'.implode( '; ', $curationNotes ).'</p>' ];
+		$component->store( $noteHash );
+		$storeXref( 'REM', null, 'CORRECT' );
 	}
 }

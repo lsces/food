@@ -1,8 +1,13 @@
 {strip}
 <div class="edit food">
-	<div class="header">
+	<header>
+		{if $gContent->isValid() && $gContent->isFlaggedForCorrection()}
+			<div class="floaticon">
+				<a title="{tr}Mark correction done{/tr}" href="edit_component.php?content_id={$gContent->mContentId}&amp;clear_correct=1">{biticon ipackage="icons" iname="dialog-ok-apply" iexplain="Mark correction done"}</a>
+			</div>
+		{/if}
 		<h1>{tr}Edit Component{/tr}{if $gContent->isValid()}: {$gContent->getTitle()|escape}{/if}</h1>
-	</div>
+	</header>
 	<div class="body">
 		{formfeedback error=$errors}
 		{form id="editComponentForm"}

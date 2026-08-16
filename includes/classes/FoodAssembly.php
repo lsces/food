@@ -155,7 +155,8 @@ class FoodAssembly extends LibertyContent {
 		// it's excluded from getItems()' INNER JOIN to liberty_content — invisible in
 		// listings, left in place permanently rather than needing explicit cleanup.
 		$xref = new LibertyXref();
-		$xref->store( [ 'content_id' => $this->mContentId, 'item' => $pMealTypeItem, 'xorder' => 0, 'xkey' => '0' ] );
+		$pHash = [ 'content_id' => $this->mContentId, 'item' => $pMealTypeItem, 'xorder' => 0, 'xkey' => '0' ];
+		$xref->store( $pHash );
 		return $this->mContentId;
 	}
 
@@ -417,7 +418,8 @@ class FoodAssembly extends LibertyContent {
 		// insert/update path), losing any record of when this actually changed.
 		foreach( $this->getItems() as $row ) {
 			$xref = new LibertyXref();
-			$xref->store( [ 'xref_id' => $row['xref_id'], 'content_id' => $this->mContentId, 'item' => $pNewType ] );
+			$pHash = [ 'xref_id' => $row['xref_id'], 'content_id' => $this->mContentId, 'item' => $pNewType ];
+			$xref->store( $pHash );
 		}
 		return true;
 	}
