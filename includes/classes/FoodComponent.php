@@ -19,10 +19,19 @@ defined( 'FOODCOMPONENT_CONTENT_TYPE_GUID' ) || define( 'FOODCOMPONENT_CONTENT_T
 #[\AllowDynamicProperties]
 class FoodComponent extends LibertyContent {
 
-	public function __construct( $pContentId = null ) {
+	/**
+	 * @param int|null $pDummy      Unused — LibertyBase::getNewObject() (the default
+	 *                              factory behind getLibertyObject()/lookup()) always
+	 *                              calls `new $class(null, $contentId)`, content_id in
+	 *                              the second slot. Food never had a real second id
+	 *                              (unlike Stock's now-retired component_id), this
+	 *                              param exists purely to match that contract.
+	 * @param int|null $pContentId  liberty_content.content_id to load.
+	 */
+	public function __construct( $pDummy = null, $pContentId = null ) {
 		parent::__construct();
 		$this->mContentTypeGuid = FOODCOMPONENT_CONTENT_TYPE_GUID;
-		$this->mContentId = (int)$pContentId;
+		$this->mContentId = (int)( $pContentId ?? $pDummy );
 
 		$this->registerContentType(
 			FOODCOMPONENT_CONTENT_TYPE_GUID, [
@@ -68,9 +77,13 @@ class FoodComponent extends LibertyContent {
 	 */
 	public static function lookupByDatauuid( string $pDatauuid ): ?int {
 		global $gBitDb;
+		// liberty_xref itself has no x_group column (only liberty_xref_item does) —
+		// join to scope the 'DUID' item lookup to the 'food' package rather than
+		// matching any package's same-named item.
 		$contentId = $gBitDb->getOne(
 			"SELECT x.`content_id` FROM `".BIT_DB_PREFIX."liberty_xref` x
-				WHERE x.`item` = 'DUID' AND x.`x_group` = 'external' AND x.`xkey` = ?",
+				JOIN `".BIT_DB_PREFIX."liberty_xref_item` s ON s.`item` = x.`item` AND s.`content_type_guid` = 'food'
+				WHERE x.`item` = 'DUID' AND x.`xkey` = ?",
 			[ $pDatauuid ]
 		);
 		return $contentId ? (int)$contentId : null;

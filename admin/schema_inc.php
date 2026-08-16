@@ -63,9 +63,13 @@ $xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,
 // 2026-08-14 export). Rows without a usable gram basis are flagged for manual
 // portion-weight curation rather than guessed. Scalar values are integer milligrams
 // (exact vs. Samsung's own decimal-gram precision, confirmed lossless — see
-// project_food_package_scoping memory); FAT/VIT/MIN compound JSON values are integer
-// micrograms throughout (mg would round vitamin D etc. to zero — confirmed against
-// real data, e.g. Kipper vitamin_d=15 is 15mcg not 15mg).
+// project_food_package_scoping memory). FAT/MIN compound JSON values are also integer
+// mg — food_info.csv only supplies mg-scale fields for those two (fat subfields/
+// cholesterol, potassium/calcium/iron; no trace-mcg minerals appear in food_info at
+// all, those only existed in the now-dropped nutrition.csv). VIT is genuinely mixed
+// native units per sub-field, confirmed against real data (Kipper vitamin_d=15 can
+// only be mcg, not mg — 15mg would be ~600x RDA) — stored with unit-suffixed JSON
+// keys (vitamin_d_mcg, vitamin_c_mg, etc.) rather than one blob-wide unit.
 $xrefTypes[] = "INSERT INTO `{$X}liberty_xref_group` (`x_group`,`content_type_guid`,`title`,`sort_order`,`role_id`,`type_href`,`template`) VALUES ('nutrition','foodcomponent','Nutrition',1,3,'','')";
 
 // Scalar nutrition items — worth individually browsing/sorting/tidying, own row each.
@@ -80,13 +84,12 @@ $xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,
 $xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('SOD', 'foodcomponent','nutrition','Sodium (mg, per 100g)',        0,3,'','text',NULL)";
 
 // Compound nutrition items — long-tail fields nobody browses individually, one row
-// each, JSON payload in liberty_xref.data (integer micrograms throughout). No generic
-// JSON-xref mechanism exists in liberty yet, so 'json' is a food-package-local
-// template (still to build) rather than a liberty one — see
-// project_food_package_scoping memory.
-$xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('FAT','foodcomponent','nutrition','Fat breakdown (mcg, per 100g)',   0,3,'','json',NULL)";
-$xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('VIT','foodcomponent','nutrition','Vitamins (mcg, per 100g)',       0,3,'','json',NULL)";
-$xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('MIN','foodcomponent','nutrition','Minerals (mcg, per 100g)',       0,3,'','json',NULL)";
+// each, JSON payload in liberty_xref.data. No generic JSON-xref mechanism exists in
+// liberty yet, so 'json' is a food-package-local template (still to build) rather
+// than a liberty one — see project_food_package_scoping memory.
+$xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('FAT','foodcomponent','nutrition','Fat breakdown (mg, per 100g)',    0,3,'','json',NULL)";
+$xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('VIT','foodcomponent','nutrition','Vitamins (mixed units, per 100g)',0,3,'','json',NULL)";
+$xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('MIN','foodcomponent','nutrition','Minerals (mg, per 100g)',        0,3,'','json',NULL)";
 
 // ── foodcomponent-specific group (sort_order=2: quantity) — pantry/movement tracking,
 // entirely separate from the nutrition group above. Modeled on Stock's SGL/PCK/SHT/VOL

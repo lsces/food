@@ -1,11 +1,11 @@
 # Food Package — Developer Notes
 
-## Status (2026-08-16): FoodComponent schema settled and built, FoodAssembly/FoodMovement not started
+## Status (2026-08-16): FoodComponent built, food_info importer built, FoodAssembly/FoodMovement not started
 
 `admin/schema_inc.php` (permissions, `registerContentObjects`, `external`/`nutrition`/`quantity`
-xref groups) and `includes/classes/FoodComponent.php` written, modeled on `StockComponent.php`.
-Not yet installed on any site, no importer built yet — import design (below) is settled enough to
-build against.
+xref groups), `includes/classes/FoodComponent.php`, and `import/ImportFoodInfo.php` +
+`import/load_food_info.php` + `templates/import_results.tpl` written. Not yet installed/run on
+any site.
 
 ## Architecture plan
 
@@ -70,19 +70,29 @@ usable gram basis via `value/metric_serving_amount*100` (confirmed exact against
 embedded "89 kcal, per 100g" text on some rows); flag the rest for manual portion-weight curation
 rather than guessing — same queue as the missing-`FIBR` gap below.
 
-**Units**: scalar items are integer milligrams (confirmed lossless — Samsung's own gram precision
-never exceeds 3 decimals, already exact mg resolution; `CAL` stays plain integer kcal, not a
-mass). The `FAT`/`VIT`/`MIN` compound JSON blobs are integer **micrograms** throughout, not mg —
-`vitamin_d` values of 5–20 in `food_info` can only be mcg (20mg would be ~800× RDA), so a flat mg
-unit would round every food's vitamin D to zero.
+**Units — revised 2026-08-16 once actually building the importer**: `food_info.csv` only supplies
+a narrower nutrient set than originally assumed (no vitamin_e/k/b12/biotin/folate/magnesium/zinc/
+etc. — those only existed in the now-dropped `nutrition.csv`). Given what `food_info` actually
+has, a single blob-wide unit doesn't hold: `FAT` (fat subfields + cholesterol) and `MIN`
+(potassium/calcium/iron) are **integer mg** — every field food_info supplies for those two is
+mg/g-scale, no mcg-scale field exists in either once nutrition.csv is out of the picture. `VIT` is
+genuinely mixed per sub-field: `vitamin_d_mcg` (confirmed — 15-20 raw value can only be mcg, 15mg
+would be ~600× RDA), `vitamin_c_mg` (confirmed via magnitude check), `vitamin_a_mcg` (assumed by
+the same toxicity-bound reasoning as vitamin_d, **not independently confirmed — spot-check after
+first import**) — stored with unit-suffixed JSON keys rather than one blob-wide unit, since the
+native units don't actually agree. Scalar items (`CAL`/`PROT`/`CARB`/`FIBR`/`SUGR`/`SOD`) stay
+integer mg as before (confirmed lossless); `CAL` is plain integer kcal, not a mass; `SOD` is
+already mg-scale in `food_info` (not grams), no ×1000 needed there unlike `PROT`/`CARB`/`FIBR`/
+`SUGR`.
 
 Scalar xref_items: `CAL` calorie, `PROT` protein, `CARB` carbohydrate, `FIBR` fibre, `SUGR` sugar,
 `SOD` sodium (needs a salt-value conversion helper: `sodium = salt / 2.5` by weight, for curation
 from UK labels which show salt not sodium). Compound JSON xref_items (`liberty_xref.data` CLOB):
-`FAT` → {total/saturated/mono/poly/trans}, `VIT` → {vitamin panel}, `MIN` → {mineral panel}. No
-generic JSON-xref mechanism exists in liberty yet — build it food-package-local first (own
-templates, same per-package override dispatch stock's BOM/supplier templates already use), only
-promote to liberty once a second package wants it.
+`FAT` → {total/saturated/mono/poly/trans/cholesterol, all `_mg`}, `VIT` → {vitamin_a_mcg/
+vitamin_c_mg/vitamin_d_mcg}, `MIN` → {potassium/calcium/iron, all `_mg`}. No generic JSON-xref
+mechanism exists in liberty yet — build it food-package-local first (own templates, same
+per-package override dispatch stock's BOM/supplier templates already use), only promote to
+liberty once a second package wants it.
 
 Five-a-day (fruit/veg portions, no Samsung source data) is a per-FoodComponent portion tag, needs
 sourcing separately (e.g. NHS "what counts as one portion" guidance).
@@ -119,6 +129,20 @@ directly, never the `provider_food_id` UUID).
 **Only import `food_info` rows referenced by at least one `food_intake.food_info_id`** — build
 that reference set first, skip unreferenced rows (abandoned duplicates from the edit-workaround
 above do occur, confirmed one directly).
+
+**Built**: `import/ImportFoodInfo.php` (row logic, CSV parsing, normalization, `LibertyXref::
+store()`-based upsert via a `foodStoreXref()` helper) + `import/load_food_info.php` (entry point,
+mirrors `stock/import/load_simple_components.php`'s bootstrap/permission-check/results-template
+shape) + `templates/import_results.tpl`. Locates the newest paired export in `FOOD_IMPORT_PATH`
+by globbing `com.samsung.health.food_info.*.csv`. Flagged rows also written to
+`storage/food/curation_needed.csv`.
+
+**Two real bugs fixed while building this** (both in the 2026-08-15 `FoodComponent.php`, neither
+previously exercised): `lookupByDatauuid()` referenced a nonexistent `liberty_xref.x_group`
+column (fixed — join `liberty_xref_item` instead); the constructor was one-param, which silently
+breaks under `LibertyBase::getNewObject()`'s hardcoded `new $class(null, $contentId)` call — see
+[[reference_liberty_content_constructor]] memory, applies to any future `LibertyContent`
+subclass in this stack, not just Food.
 
 ## Data source: Samsung Health export
 
