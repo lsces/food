@@ -226,6 +226,136 @@ class FoodAssembly extends LibertyContent {
 		}
 	}
 
+	/** Diary meal-type item codes → display label. Recipe/menu types (not yet built) are fixed,
+	 *  never switchable the way these five are — see project_food_package_scoping memory. */
+	public const MEAL_TYPE_LABELS = [
+		'BREAKFAST' => 'Breakfast',
+		'LUNCH'     => 'Lunch',
+		'DINNER'    => 'Dinner',
+		'MSNK'      => 'Morning snack',
+		'ESNK'      => 'Evening snack',
+	];
+
+	public static function mealTypeLabel( string $pItem ): string {
+		return self::MEAL_TYPE_LABELS[$pItem] ?? $pItem;
+	}
+
+	/**
+	 * Which single meal-type item code this assembly actually uses — the item code
+	 * itself is the type marker (see class docblock), so this is just "which of the
+	 * five item codes has rows here", not a stored field.
+	 */
+	public function getMealType(): ?string {
+		if( !$this->isValid() ) {
+			return null;
+		}
+		$item = $this->mDb->getOne(
+			"SELECT `item` FROM `".BIT_DB_PREFIX."liberty_xref` WHERE `content_id` = ? AND `item` IN ('".implode( "','", array_keys( self::MEAL_TYPE_LABELS ) )."')",
+			[ $this->mContentId ]
+		);
+		return $item ?: null;
+	}
+
+	/**
+	 * This assembly's ingredient rows (whichever single meal-type item code is
+	 * populated), ordered by position, with the referenced FoodComponent's title
+	 * joined in.
+	 *
+	 * @return array  Each row: xref_id, item, component_content_id (xref), quantity
+	 *                (xkey), xorder, component_title.
+	 */
+	public function getItems(): array {
+		if( !$this->isValid() ) {
+			return [];
+		}
+		return $this->mDb->getAll(
+			"SELECT x.`xref_id`, x.`item`, x.`xref` AS component_content_id, x.`xkey` AS quantity, x.`xorder`,
+					lc.`title` AS component_title
+				FROM `".BIT_DB_PREFIX."liberty_xref` x
+				JOIN `".BIT_DB_PREFIX."liberty_content` lc ON ( lc.`content_id` = x.`xref` )
+				WHERE x.`content_id` = ? AND x.`item` IN ('".implode( "','", array_keys( self::MEAL_TYPE_LABELS ) )."')
+				ORDER BY x.`xorder`",
+			[ $this->mContentId ]
+		);
+	}
+
+	/**
+	 * Meal-type item codes already used by some *other* FoodAssembly on the same
+	 * calendar day as $pEventTime — the day-uniqueness check ("a day should only see
+	 * one of each intake type", flagged 2026-08-16, no generic bitweaver hook for
+	 * this so it's enforced here by hand).
+	 *
+	 * @param  int      $pEventTime          Unix timestamp — any moment on the day to check.
+	 * @param  int|null $pExcludeContentId   This assembly's own content_id, so it doesn't
+	 *                                       count against itself.
+	 * @return string[]  Item codes already taken that day.
+	 */
+	public static function mealTypesTakenOnDay( int $pEventTime, ?int $pExcludeContentId = null ): array {
+		global $gBitDb;
+		$dayStart = strtotime( gmdate( 'Y-m-d 00:00:00', $pEventTime ) );
+		$dayEnd   = strtotime( '+1 day', $dayStart );
+		$sql = "SELECT DISTINCT x.`item` FROM `".BIT_DB_PREFIX."liberty_xref` x
+					JOIN `".BIT_DB_PREFIX."liberty_content` lc ON ( lc.`content_id` = x.`content_id` )
+					WHERE lc.`content_type_guid` = '".FOODASSEMBLY_CONTENT_TYPE_GUID."'
+						AND lc.`event_time` >= ? AND lc.`event_time` < ?
+						AND x.`item` IN ('".implode( "','", array_keys( self::MEAL_TYPE_LABELS ) )."')";
+		$bindVars = [ $dayStart, $dayEnd ];
+		if( $pExcludeContentId ) {
+			$sql .= " AND x.`content_id` != ?";
+			$bindVars[] = $pExcludeContentId;
+		}
+		return $gBitDb->getCol( $sql, $bindVars );
+	}
+
+	/**
+	 * Meal-type item codes available to switch this assembly to — every registered
+	 * type except ones already taken that day by a different assembly. Always
+	 * includes the current type itself (picking "no change" is always valid).
+	 *
+	 * @return array  item code => label, same shape as MEAL_TYPE_LABELS.
+	 */
+	public function getAvailableMealTypes(): array {
+		$current = $this->getMealType();
+		$taken   = $this->isValid() ? self::mealTypesTakenOnDay( $this->getField( 'event_time' ), $this->mContentId ) : [];
+		$ret = [];
+		foreach( self::MEAL_TYPE_LABELS as $item => $label ) {
+			if( $item === $current || !in_array( $item, $taken, true ) ) {
+				$ret[$item] = $label;
+			}
+		}
+		return $ret;
+	}
+
+	/**
+	 * Reclassify this assembly to a different meal type — bulk-renames every
+	 * ingredient row's item from the current type to $pNewType. No-op if $pNewType
+	 * is already the current type; fails (returns false, error in mErrors) if that
+	 * type is already taken by a different assembly the same day.
+	 */
+	public function changeMealType( string $pNewType ): bool {
+		if( !isset( self::MEAL_TYPE_LABELS[$pNewType] ) ) {
+			$this->mErrors['meal_type'] = 'Not a recognized meal type.';
+			return false;
+		}
+		$current = $this->getMealType();
+		if( $current === $pNewType ) {
+			return true;
+		}
+		$taken = self::mealTypesTakenOnDay( $this->getField( 'event_time' ), $this->mContentId );
+		if( in_array( $pNewType, $taken, true ) ) {
+			$this->mErrors['meal_type'] = self::mealTypeLabel( $pNewType ).' already exists for this day.';
+			return false;
+		}
+		// Per-row via LibertyXref::store(), not a bulk UPDATE — a raw UPDATE skips
+		// last_update_date entirely (verify() only stamps it through the normal
+		// insert/update path), losing any record of when this actually changed.
+		foreach( $this->getItems() as $row ) {
+			$xref = new LibertyXref();
+			$xref->store( [ 'xref_id' => $row['xref_id'], 'content_id' => $this->mContentId, 'item' => $pNewType ] );
+		}
+		return true;
+	}
+
 	public function expunge(): bool {
 		if( $this->isValid() ) {
 			$this->StartTrans();
