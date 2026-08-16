@@ -78,13 +78,13 @@ class FoodComponent extends LibertyContent {
 	public static function lookupByDatauuid( string $pDatauuid ): ?int {
 		global $gBitDb;
 		// liberty_xref itself has no x_group column (only liberty_xref_item does) —
-		// join to scope the 'DUID' item lookup to the 'food' package rather than
-		// matching any package's same-named item. datauuid is a 36-char UUID, which
+		// join to scope the 'DUID' item lookup to foodcomponent rather than matching
+		// any content type's same-named item. datauuid is a 36-char UUID, which
 		// exceeds xkey's 32-char limit (Firebird fatal, not a silent truncation) —
 		// stored/matched via xkey_ext instead, see ImportFoodInfo.php::foodStoreXref.
 		$contentId = $gBitDb->getOne(
 			"SELECT x.`content_id` FROM `".BIT_DB_PREFIX."liberty_xref` x
-				JOIN `".BIT_DB_PREFIX."liberty_xref_item` s ON s.`item` = x.`item` AND s.`content_type_guid` = 'food'
+				JOIN `".BIT_DB_PREFIX."liberty_xref_item` s ON s.`item` = x.`item` AND s.`content_type_guid` = '".FOODCOMPONENT_CONTENT_TYPE_GUID."'
 				WHERE x.`item` = 'DUID' AND x.`xkey_ext` = ?",
 			[ $pDatauuid ]
 		);
@@ -160,6 +160,42 @@ class FoodComponent extends LibertyContent {
 			}
 		}
 		return count( $this->mErrors ) == 0;
+	}
+
+	/**
+	 * @param  array $pParamHash  Must contain 'content_id'; used to build the URL.
+	 * @return string
+	 */
+	public static function getDisplayUrlFromHash( &$pParamHash ) {
+		global $gBitSystem;
+		$ret = '';
+		if( static::verifyId( $pParamHash['content_id'] ?? 0 ) ) {
+			$ret = FOOD_PKG_URL;
+			$ret .= $gBitSystem->isFeatureActive( 'pretty_urls' )
+				? 'component/'.$pParamHash['content_id']
+				: 'view_component.php?content_id='.$pParamHash['content_id'];
+		}
+		return $ret;
+	}
+
+	/** @return string  Display URL for this component. */
+	public function getDisplayUrl() {
+		return static::getDisplayUrlFromHash( $this->mInfo );
+	}
+
+	/**
+	 * Overrides LibertyContent's default (which points at a plain 'edit.php' every
+	 * package is assumed to have) — Food has more than one content type
+	 * (FoodComponent/FoodAssembly), same reason Stock overrides this on each of its
+	 * own content classes rather than relying on the generic default.
+	 *
+	 * @return string  URL to edit_component.php for this component.
+	 */
+	public function getEditUrl( $pContentId = null, $pMixed = null ): string {
+		if( $this->verifyId( $this->mContentId ) ) {
+			return FOOD_PKG_URL.'edit_component.php?content_id='.$this->mContentId;
+		}
+		return FOOD_PKG_URL.'edit_component.php';
 	}
 
 	/**

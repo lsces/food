@@ -49,16 +49,28 @@ $X = BIT_DB_PREFIX;
 $xrefTypes = [];
 $xrefItems = [];
 
-// ── 'food' package-level group — external system reference, shared across every food
-// content type that gets imported from Samsung Health. Same idea as Stock's KLID
-// (Kitlocker ID Code): an external system's own id, kept as a plain xref item rather
-// than a schema column, so re-import can dedupe/upsert on it without needing a table.
-$xrefTypes[] = "INSERT INTO `{$X}liberty_xref_group` (`x_group`,`content_type_guid`,`title`,`sort_order`,`role_id`,`type_href`,`template`) VALUES ('external','food','External Reference',0,3,'','')";
-$xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('DUID','food','external','Samsung Health datauuid',0,3,'','text',NULL)";
+// ── foodcomponent-specific group (sort_order=3: external) — external system
+// reference. Same idea as Stock's KLID (Kitlocker ID Code): an external system's own
+// id, kept as a plain xref item rather than a schema column, so re-import can
+// dedupe/upsert on it without needing a table.
+//
+// Originally registered at the package level (content_type_guid='food', sort_order=0)
+// on the theory it'd be "shared across every food content type" — corrected
+// 2026-08-16: FoodAssembly has no datauuid at all (identified by event_time+meal-type
+// item, not a Samsung UUID), so in practice this was never actually shared, just
+// speculative scoping. Package-level sort_order=0 also collided with foodcomponent's
+// own sort_order=1 'nutrition' group under LibertyXrefType::loadContent()'s dual-guid
+// scoping (`content_type_guid IN (class_guid, package_guid)`, ORDER BY sort_order) —
+// a real instance of this codebase's known package/class content_type_guid niggle.
+// Scoped directly to foodcomponent now, sidesteps both problems; if a future Food
+// content type needs its own external-reference tracking, it registers its own group
+// rather than reusing a shared package-level one.
+$xrefTypes[] = "INSERT INTO `{$X}liberty_xref_group` (`x_group`,`content_type_guid`,`title`,`sort_order`,`role_id`,`type_href`,`template`) VALUES ('external','foodcomponent','External Reference',3,3,'','')";
+$xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('DUID','foodcomponent','external','Samsung Health datauuid',0,3,'','text',NULL)";
 // PFID = food_info.provider_food_id verbatim ('fatsecret-<id>' or 'quickinput-<uuid>').
 // Provenance ('is this a hand-entered fix') is a prefix check on this at query/curation
 // time, not a separate stored flag — see project_food_package_scoping memory.
-$xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('PFID','food','external','Samsung Health provider_food_id',0,3,'','text',NULL)";
+$xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('PFID','foodcomponent','external','Samsung Health provider_food_id',0,3,'','text',NULL)";
 
 // ── foodcomponent-specific group (sort_order=1: nutrition) ─────────────────────────
 // All values are per-100g, curated at import time from food_info.csv's raw per-serving

@@ -9,7 +9,7 @@
 			{tr}flagged components still outstanding{/tr}
 			{if $totalFlagged}({$percentDone}% {tr}done{/tr}){/if}.
 		</p>
-		<p>{tr}Mark a component done by setting its REM xref's xkey_ext to{/tr} <code>CORRECT</code>.</p>
+		<p>{tr}Mark a component done: open it, edit its REM row, set Notes to{/tr} <code>CORRECT</code>.</p>
 
 		{if $corrections}
 			<table class="table table-condensed">
@@ -22,9 +22,8 @@
 				</thead>
 				<tbody>
 					{foreach $corrections as $c}
-					{* No view_component.php yet — plain text + content_id until an edit/view page exists *}
 					<tr>
-						<td>{$c.title|escape} <small>(#{$c.content_id})</small></td>
+						<td><a href="view_component.php?content_id={$c.content_id}">{$c.title|escape}</a></td>
 						<td>{$c.usage_count}</td>
 						<td>{$c.note|escape}</td>
 					</tr>
