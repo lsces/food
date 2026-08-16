@@ -79,12 +79,27 @@ function foodFindLatestExportPair( string $pImportPath ): ?array {
  * Samsung timestamps are 'Y-m-d H:i:s.u' (fractional seconds) — DateTime handles that
  * format directly; strtotime() is the fallback for anything unexpected.
  */
-function foodParseSamsungTime( ?string $pStr ): ?int {
+/**
+ * $pOffset is food_intake.csv's own time_offset column ('UTC+0000'/'UTC+0100' etc) —
+ * confirmed both actually occur in the real export (GMT vs BST periods) and confirmed
+ * the raw start_time/create_time/update_time strings are LOCAL wall-clock time, not
+ * already UTC (standard mobile-health-export convention: record what the clock said
+ * + the offset needed to compute true UTC, same as Apple Health/Google Fit/Fitbit).
+ * Without $pOffset (food_info.csv has no such column at all, only food_intake.csv
+ * does) falls back to naive UTC parsing — the best available for that file, an
+ * honest gap rather than a fixable one, less consequential anyway (only affects
+ * FoodComponent's own created/last_modified, not any day-grouping logic).
+ */
+function foodParseSamsungTime( ?string $pStr, ?string $pOffset = null ): ?int {
 	$str = trim( (string)$pStr );
 	if( $str === '' ) {
 		return null;
 	}
-	$dt = \DateTime::createFromFormat( 'Y-m-d H:i:s.u', $str, new \DateTimeZone( 'UTC' ) );
+	$tz = new \DateTimeZone( 'UTC' );
+	if( $pOffset && preg_match( '/^UTC([+-]\d{2})(\d{2})$/', trim( $pOffset ), $m ) ) {
+		$tz = new \DateTimeZone( $m[1].':'.$m[2] );
+	}
+	$dt = \DateTime::createFromFormat( 'Y-m-d H:i:s.u', $str, $tz );
 	if( $dt !== false ) {
 		return (int)$dt->format( 'U' );
 	}

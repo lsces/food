@@ -95,6 +95,71 @@ class FoodAssembly extends LibertyContent {
 	}
 
 	/**
+	 * Find the assembly (if any) of a given meal type on a given calendar day —
+	 * unlike lookupByEventTime(), doesn't need an exact event_time match, just
+	 * somewhere within the day. Used by the day view.
+	 *
+	 * @param  int    $pDayStart      Unix timestamp — any moment on the day to check
+	 *                                (day boundary computed from it, matches
+	 *                                mealTypesTakenOnDay()'s own convention).
+	 * @param  string $pMealTypeItem  BREAKFAST/LUNCH/DINNER/MSNK/ESNK.
+	 * @return int|null  content_id if found, else null.
+	 */
+	public static function lookupByDayAndType( int $pDayStart, string $pMealTypeItem ): ?int {
+		global $gBitDb;
+		$dayStart = strtotime( gmdate( 'Y-m-d 00:00:00', $pDayStart ) );
+		$dayEnd   = strtotime( '+1 day', $dayStart );
+		$contentId = $gBitDb->getOne(
+			"SELECT lc.`content_id` FROM `".BIT_DB_PREFIX."liberty_content` lc
+				WHERE lc.`content_type_guid` = '".FOODASSEMBLY_CONTENT_TYPE_GUID."'
+					AND lc.`event_time` >= ? AND lc.`event_time` < ?
+					AND EXISTS ( SELECT 1 FROM `".BIT_DB_PREFIX."liberty_xref` x WHERE x.`content_id` = lc.`content_id` AND x.`item` = ? )",
+			[ $dayStart, $dayEnd, $pMealTypeItem ]
+		);
+		return $contentId ? (int)$contentId : null;
+	}
+
+	/**
+	 * Create a new, empty assembly for a given day + meal type — used by the day
+	 * view's "log a new meal" action for a slot that doesn't exist yet. Caller adds
+	 * ingredients afterward via addItem()/add_assembly_item.php.
+	 *
+	 * event_time is stored as plain midnight on the day, no fabricated time-of-day —
+	 * the meal type (the item code) already conveys roughly when in the day this is,
+	 * and nothing anywhere actually reads a precise time within the day (day-range
+	 * queries are how mealTypesTakenOnDay()/lookupByDayAndType() work regardless).
+	 * Historical imported meals keep their real Samsung start_time — this only
+	 * affects newly-created ones, where a real time was never known anyway.
+	 *
+	 * @return int|null  The new content_id, or null on failure (see mErrors).
+	 */
+	public function createForDay( int $pDayStart, string $pMealTypeItem ) {
+		if( !isset( self::MEAL_TYPE_LABELS[$pMealTypeItem] ) ) {
+			$this->mErrors['meal_type'] = 'Not a recognized meal type.';
+			return null;
+		}
+		$dayStart = strtotime( gmdate( 'Y-m-d 00:00:00', $pDayStart ) );
+		if( in_array( $pMealTypeItem, self::mealTypesTakenOnDay( $dayStart ), true ) ) {
+			$this->mErrors['meal_type'] = self::mealTypeLabel( $pMealTypeItem ).' already exists for this day.';
+			return null;
+		}
+		$title = self::mealTypeLabel( $pMealTypeItem ).' — '.gmdate( 'Y-m-d', $dayStart );
+		$pHash = [ 'title' => $title, 'event_time' => $dayStart ];
+		if( !$this->store( $pHash ) ) {
+			return null;
+		}
+		// Stamp the type immediately with a placeholder row so getMealType() resolves
+		// even before any real ingredient is added. xorder=0 (getItems()/addItem()'s
+		// next-position query both only ever look at xorder>=1 rows in practice
+		// since add_assembly_item.php starts new content at 1) and xref left NULL, so
+		// it's excluded from getItems()' INNER JOIN to liberty_content — invisible in
+		// listings, left in place permanently rather than needing explicit cleanup.
+		$xref = new LibertyXref();
+		$xref->store( [ 'content_id' => $this->mContentId, 'item' => $pMealTypeItem, 'xorder' => 0, 'xkey' => '0' ] );
+		return $this->mContentId;
+	}
+
+	/**
 	 * Load assembly data into $this->mInfo from liberty_content.
 	 *
 	 * @return int|null  Row count (> 0) on success, or null if mContentId is not set.

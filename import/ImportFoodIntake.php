@@ -114,15 +114,15 @@ function foodImportIntakeGroup( array $pGroupRows, array $pServingLookup, array 
 		return;
 	}
 
-	$eventTime = foodParseSamsungTime( $first['start_time'] ?? null );
+	$eventTime = foodParseSamsungTime( $first['start_time'] ?? null, $first['time_offset'] ?? null );
 	if( $eventTime === null ) {
 		$pResult['skipped'] += count( $pGroupRows );
 		$pResult['errors'][] = "Group with unparseable start_time skipped (".count( $pGroupRows )." rows).";
 		return;
 	}
 
-	$createTimes = array_filter( array_map( fn( $r ) => foodParseSamsungTime( $r['create_time'] ?? null ), $pGroupRows ) );
-	$updateTimes = array_filter( array_map( fn( $r ) => foodParseSamsungTime( $r['update_time'] ?? null ), $pGroupRows ) );
+	$createTimes = array_filter( array_map( fn( $r ) => foodParseSamsungTime( $r['create_time'] ?? null, $r['time_offset'] ?? null ), $pGroupRows ) );
+	$updateTimes = array_filter( array_map( fn( $r ) => foodParseSamsungTime( $r['update_time'] ?? null, $r['time_offset'] ?? null ), $pGroupRows ) );
 	$createTime  = $createTimes ? min( $createTimes ) : null;
 	$updateTime  = $updateTimes ? max( $updateTimes ) : null;
 
@@ -166,8 +166,8 @@ function foodImportIntakeGroup( array $pGroupRows, array $pServingLookup, array 
 			];
 		}
 
-		$rowCreateTime = foodParseSamsungTime( $row['create_time'] ?? null );
-		$rowUpdateTime = foodParseSamsungTime( $row['update_time'] ?? null );
+		$rowCreateTime = foodParseSamsungTime( $row['create_time'] ?? null, $row['time_offset'] ?? null );
+		$rowUpdateTime = foodParseSamsungTime( $row['update_time'] ?? null, $row['time_offset'] ?? null );
 		$assembly->addItem( $mealItem, $componentId, $grams, $position, $rowCreateTime, $rowUpdateTime );
 	}
 }
