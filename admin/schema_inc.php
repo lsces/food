@@ -103,7 +103,8 @@ $xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,
 
 // Compound nutrition items — long-tail fields nobody browses individually, one row
 // each, JSON payload in liberty_xref.data. 'json-list' is a generic liberty item
-// template (view_xref_json-list_item.tpl, added 2026-08-17) — each key renders as its
+// template (xref/view_json-list_item.tpl, added 2026-08-17, moved under templates/xref/
+// 2026-08-17) — each key renders as its
 // own line in a nested table within the cell, not separate outer rows (list_xref.tpl
 // owns the outer <tr> per xref row, an item template can't add more — see liberty's
 // MANUAL.md).
@@ -150,9 +151,9 @@ $xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,
 // ── supplier group, its own tab (sort_order=2, right after quantity) — corrects the
 // 2026-08-17 decision to cram SUP into the quantity group ("cheating"), mirroring
 // Stock's own dedicated 'supplier' group instead (see stock/admin/schema_inc.php +
-// add_supplier.php + templates/stockcomponent/view_xref_sup_group.tpl, the proven real
+// add_supplier.php + templates/xref/stockcomponent/view_sup_group.tpl, the proven real
 // pattern this is copied from). Group-level template='sup' — a custom group template
-// (view_xref_sup_group.tpl), not the generic list_xref.tpl, same reason Stock's isn't
+// (xref/foodcomponent/view_sup_group.tpl), not the generic list_xref.tpl, same reason Stock's isn't
 // generic either: a supplier row needs its own Supplier/Price/Note columns, not the
 // generic Type/Value/Notes shape. multiple=1: a generic product can legitimately have
 // several real suppliers (bought from different shops at different times).
