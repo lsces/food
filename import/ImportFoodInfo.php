@@ -144,8 +144,11 @@ function foodNormalizePer100g( $pRawValue, $pServingAmount ): ?float {
  * FoodComponent's own created/last_modified (the Samsung create_time/update_time)
  * rather than the moment the importer happened to run — see liberty's
  * LibertyXref::verify() override support, added alongside this.
+ *
+ * $pXref (a content_id, e.g. a supplier Contact) writes the xref column itself,
+ * distinct from xkey/xkey_ext — used by SUP, see foodMatchSupplier().
  */
-function foodStoreXref( int $pContentId, string $pItem, $pXkey = null, $pXkeyExt = null, $pData = null, ?int $pEntryDate = null, ?int $pLastUpdateDate = null ): void {
+function foodStoreXref( int $pContentId, string $pItem, $pXkey = null, $pXkeyExt = null, $pData = null, ?int $pEntryDate = null, ?int $pLastUpdateDate = null, ?int $pXref = null ): void {
 	global $gBitDb;
 
 	$existingId = $gBitDb->getOne(
@@ -163,6 +166,9 @@ function foodStoreXref( int $pContentId, string $pItem, $pXkey = null, $pXkeyExt
 	if( $pXkeyExt !== null ) {
 		$pHash['xkey_ext'] = (string)$pXkeyExt;
 	}
+	if( $pXref !== null ) {
+		$pHash['xref'] = $pXref;
+	}
 	if( $pData !== null ) {
 		$pHash['edit'] = $pData; // verify() maps 'edit' -> xref_store['data']
 	}
@@ -178,6 +184,110 @@ function foodStoreXref( int $pContentId, string $pItem, $pXkey = null, $pXkeyExt
 
 	$xref = new LibertyXref();
 	$xref->store( $pHash );
+}
+
+/**
+ * title -> content_id lookup for the known shop suppliers (contactbusiness records
+ * carrying the B04 'Supplier' xref, see project_contact_bugs_found memory for the
+ * business-type reference) — built once per import run, not once per row.
+ *
+ * @return array<string,int>  Contact title => content_id.
+ */
+function foodSupplierLookup(): array {
+	static $lookup = null;
+	if( $lookup === null ) {
+		global $gBitDb;
+		$rows = $gBitDb->getAll(
+			"SELECT lc.`content_id`, lc.`title` FROM `".BIT_DB_PREFIX."liberty_content` lc
+				JOIN `".BIT_DB_PREFIX."liberty_xref` lx ON ( lx.`content_id` = lc.`content_id` AND lx.`item` = 'B04' )
+			 WHERE lc.`content_type_guid` = 'contactbusiness'"
+		);
+		$lookup = [];
+		foreach( $rows as $row ) {
+			$lookup[$row['title']] = (int)$row['content_id'];
+		}
+	}
+	return $lookup;
+}
+
+/**
+ * Match a food_info title's trailing "(...)" text against a known shop supplier.
+ *
+ * Samsung bakes supplier/brand into the title as free text (e.g. "Ice cream sandwich
+ * (Gelatelli)", "Cheese Slice(Morrisons)"). Whether that text stays in the title
+ * depends on *how* it matched — see the `trim` flag on the return value.
+ *
+ * Three-stage match, in order:
+ *   1. Plain exact match against a real shop title (e.g. "(Morrisons)" == "Morrisons")
+ *      — pure duplication of what SUP now encodes structurally, safe to trim from the
+ *      title (Lester: "the (Morrisons) needs to stay in the .csv [source] it would be
+ *      nice to trim from the title").
+ *   2. Explicit aliases for own-brand sub-labels that don't literally contain their
+ *      parent chain's name (e.g. Lidl's "Chef Select" range, "By Sainsbury's", "M&S
+ *      Food" — the latter added as the same class of case as the two Lester named, not
+ *      explicitly confirmed, worth a spot-check).
+ *   3. Substring containment against every known shop title, covering most retailer
+ *      own-brand sub-lines for free ("Tesco Finest" contains "Tesco", "Waitrose
+ *      Essential" contains "Waitrose") without needing an alias entry per sub-brand.
+ * Stages 2 and 3 carry real information beyond "which shop" (the sub-brand/range name)
+ * — Lester's earlier call was explicit that this stays in the title ("the 'own brand'
+ * bit just needs leaving in the title"), only a bare shop-name match is redundant
+ * enough to trim.
+ *
+ * Most parenthetical text won't match anything at all — manufacturer brands
+ * (Heinz, Cadbury...) and restaurant chains (McDonald's, KFC...) are real, common, and
+ * deliberately not shops (Lester: "worry about brands later") — that's the expected
+ * majority outcome, not a gap to flag or curate.
+ *
+ * @return array{content_id:int,trim:bool}|null  Matched shop + whether the matched
+ *         bracket text is safe to strip from the title, or null if nothing matched.
+ */
+function foodMatchSupplier( string $pTitle ): ?array {
+	if( !preg_match( '/\(([^()]*)\)\s*$/', $pTitle, $m ) ) {
+		return null;
+	}
+	$paren = trim( $m[1] );
+	if( $paren === '' ) {
+		return null;
+	}
+	$lower  = strtolower( $paren );
+	$lookup = foodSupplierLookup();
+
+	foreach( $lookup as $shopTitle => $contentId ) {
+		if( strtolower( $shopTitle ) === $lower ) {
+			return [ 'content_id' => $contentId, 'trim' => true ];
+		}
+	}
+
+	static $aliases = [
+		'chef select'    => 'Lidl',
+		'chef select '   => 'Lidl', // trailing-space variant seen in real data
+		"by sainsbury's" => "Sainsbury's",
+		'm&s food'       => 'Marks & Spencer',
+	];
+	if( isset( $aliases[$lower] ) ) {
+		$canonical = strtolower( $aliases[$lower] );
+		foreach( $lookup as $shopTitle => $contentId ) {
+			if( strtolower( $shopTitle ) === $canonical ) {
+				return [ 'content_id' => $contentId, 'trim' => false ];
+			}
+		}
+	}
+
+	foreach( $lookup as $shopTitle => $contentId ) {
+		if( str_contains( $lower, strtolower( $shopTitle ) ) ) {
+			return [ 'content_id' => $contentId, 'trim' => false ];
+		}
+	}
+	return null;
+}
+
+/**
+ * Strip a trailing "(...)" bracket from a title, e.g. "Cheese Slice(Morrisons)" ->
+ * "Cheese Slice" — only called for foodMatchSupplier()'s exact-match (trim=true) case.
+ */
+function foodTrimSupplierBracket( string $pTitle ): string {
+	return trim( preg_replace( '/\s*\([^()]*\)\s*$/', '', $pTitle ) );
 }
 
 /**
@@ -214,6 +324,57 @@ function foodImportFoodInfoRow( array $pRow, int $pRowNum, array &$pResult, bool
 		}
 	}
 
+	// Matched against the raw title before any trimming — an exact shop-name match
+	// (trim=true) strips the now-redundant bracket from the *stored* title below; a
+	// sub-brand/alias match (trim=false) leaves the title exactly as Samsung wrote it.
+	$supplierMatch = foodMatchSupplier( $title );
+	if( $supplierMatch !== null && $supplierMatch['trim'] ) {
+		$title = foodTrimSupplierBracket( $title );
+	}
+
+	// Curation checks computed up-front (both are pure functions of $pRow, no
+	// dependency on anything below) so the note can go into the ONE store() call
+	// below, rather than a second store() later — see the fatal-bug note further
+	// down for why a second store() on the same object is unsafe, not just wasteful.
+	$servingAmount = $pRow['metric_serving_amount'] ?? '';
+	$servingUnit   = strtolower( trim( (string)( $pRow['metric_serving_unit'] ?? '' ) ) );
+	// 'g' (weight) and 'ml' (volume) are both legitimate per-100-unit labeling bases —
+	// matches the WT/VOL split already in foodcomponent's quantity group. Samsung's own
+	// serving-count codes (e.g. metric_serving_unit='120001') and amount=0/blank are
+	// the genuine no-basis case. Rather than leave nutrition empty, assume 100g/ml and
+	// import anyway (rough data beats none) — flagged via a note in REM's data instead
+	// of a dedicated xref item, since REM isn't used for anything yet.
+	$hasUsableBasis = is_numeric( $servingAmount ) && (float)$servingAmount > 0 && in_array( $servingUnit, [ 'g', 'ml' ], true );
+
+	$curationNotes = [];
+	if( !$hasUsableBasis ) {
+		$curationNotes[] = "assumed 100g/ml basis (source amount='$servingAmount', unit='$servingUnit')";
+		$pResult['flagged'][] = [
+			'title'    => $title,
+			'datauuid' => $datauuid,
+			'reason'   => "nutrition assumed 100g/ml (source amount='$servingAmount', unit='$servingUnit') — needs checking",
+		];
+	}
+	if( ( $pRow['dietary_fiber'] ?? '' ) === '' ) {
+		$curationNotes[] = 'FIBR missing from source';
+		$pResult['flagged'][] = [
+			'title'    => $title,
+			'datauuid' => $datauuid,
+			'reason'   => 'FIBR missing from source',
+		];
+	}
+	$effectiveServingAmount = $hasUsableBasis ? $servingAmount : 100;
+
+	// Curation note: the human-readable reason goes straight onto the component's own
+	// liberty_content.data (wrapped in <p>... actually plain text, format_guid is
+	// forced to 'simpletext' in FoodComponent::verifyComponentData(), which renders
+	// line breaks itself via nl2br at display time — hand-written HTML here would just
+	// show up as literal escaped tags) via the SAME store() call as title/created/
+	// last_modified below — not REM's own data field, which was only ever a stopgap
+	// before this became the settled convention (see project_food_package_scoping
+	// memory, "REM's xkey_ext/data split"). REM itself gets a flag row further down
+	// (no data payload, that's on liberty_content.data) with xkey_ext='REVIEW' — the
+	// outstanding-work flag itself, "this needs review", not "reviewed and accepted".
 	$pHash = [ 'title' => $title ];
 	if( $createTime !== null ) {
 		$pHash['created'] = $createTime;
@@ -221,6 +382,20 @@ function foodImportFoodInfoRow( array $pRow, int $pRowNum, array &$pResult, bool
 	if( $updateTime !== null ) {
 		$pHash['last_modified'] = $updateTime;
 	}
+	if( $curationNotes ) {
+		$pHash['edit'] = implode( '; ', $curationNotes );
+	}
+	// Real bug found+fixed 2026-08-17: this used to be two separate store() calls on
+	// the same $component object (title/dates here, then the curation note later) —
+	// LibertyContent::store() never refreshes $this->mInfo['version'] in memory after
+	// a write, so a second store() on the same object computes the identical "next
+	// version" as the first and collides on liberty_content_history's unique
+	// (content_id, version) key — Firebird SQLSTATE 23000. Silently never triggered
+	// before today because the title never actually changed release-to-release (no
+	// real field_changed on that first call), only surfaced once the SUP-trim logic
+	// above started giving the first call real content to change. Folding the note
+	// into this single call removes the second store() entirely, not just papers over
+	// the collision.
 	if( !$component->store( $pHash ) ) {
 		$pResult['skipped']++;
 		$pResult['errors'][] = "Row $pRowNum: '$title' — failed to store FoodComponent.";
@@ -235,8 +410,8 @@ function foodImportFoodInfoRow( array $pRow, int $pRowNum, array &$pResult, bool
 	// here, only adds noise reading raw xref rows in isql/FlameRobin.
 	$createDate = $createTime !== null ? strtotime( gmdate( 'Y-m-d 00:00:00', $createTime ) ) : null;
 	$updateDate = $updateTime !== null ? strtotime( gmdate( 'Y-m-d 00:00:00', $updateTime ) ) : null;
-	$storeXref = function( string $pItem, $pXkey = null, $pXkeyExt = null, $pData = null ) use ( $contentId, $createDate, $updateDate ) {
-		foodStoreXref( $contentId, $pItem, $pXkey, $pXkeyExt, $pData, $createDate, $updateDate );
+	$storeXref = function( string $pItem, $pXkey = null, $pXkeyExt = null, $pData = null, ?int $pXref = null ) use ( $contentId, $createDate, $updateDate ) {
+		foodStoreXref( $contentId, $pItem, $pXkey, $pXkeyExt, $pData, $createDate, $updateDate, $pXref );
 	};
 
 	// datauuid (36 chars) and provider_food_id (up to ~48 chars for quickinput-<uuid>)
@@ -247,27 +422,20 @@ function foodImportFoodInfoRow( array $pRow, int $pRowNum, array &$pResult, bool
 		$storeXref( 'PFID', null, $pfid );
 	}
 
-	// 'g' (weight) and 'ml' (volume) are both legitimate per-100-unit labeling bases —
-	// matches the WT/VOL split already in foodcomponent's quantity group. Samsung's own
-	// serving-count codes (e.g. metric_serving_unit='120001') and amount=0/blank are
-	// the genuine no-basis case. Rather than leave nutrition empty, assume 100g/ml and
-	// import anyway (rough data beats none) — flagged via a note in REM's data instead
-	// of a dedicated xref item, since REM isn't used for anything yet.
-	$servingAmount = $pRow['metric_serving_amount'] ?? '';
-	$servingUnit   = strtolower( trim( (string)( $pRow['metric_serving_unit'] ?? '' ) ) );
-	$hasUsableBasis = is_numeric( $servingAmount ) && (float)$servingAmount > 0 && in_array( $servingUnit, [ 'g', 'ml' ], true );
-
-	$curationNotes = [];
-	if( !$hasUsableBasis ) {
-		$curationNotes[] = "assumed 100g/ml basis (source amount='$servingAmount', unit='$servingUnit')";
-		$pResult['flagged'][] = [
-			'title'    => $title,
-			'datauuid' => $datauuid,
-			'reason'   => "nutrition assumed 100g/ml (source amount='$servingAmount', unit='$servingUnit') — needs checking",
-		];
+	// SUP — real xref to a known shop's Contact content_id ($supplierMatch computed
+	// earlier, against the raw title, before the possible trim above). Only a small
+	// fixed set of shops exist as Contacts so far — no match is the normal/expected
+	// outcome for most rows (manufacturer brands, restaurant chains, or shops not yet
+	// added as Contacts), not flagged as a curation gap.
+	if( $supplierMatch !== null ) {
+		$storeXref( 'SUP', null, null, null, $supplierMatch['content_id'] );
 	}
-	$effectiveServingAmount = $hasUsableBasis ? $servingAmount : 100;
 
+	// 'g' (weight) and 'ml' (volume) are both legitimate per-100-unit labeling bases —
+	// matches the WT/VOL split already in foodcomponent's quantity group ($servingAmount/
+	// $servingUnit/$hasUsableBasis/$effectiveServingAmount computed earlier, up front,
+	// alongside the curation-note checks — see the note there for why).
+	//
 	// Declare the component's own WT/VOL type marker (foodcomponent's quantity group)
 	// from the same serving-unit basis just used for nutrition normalization — this
 	// is what lets FoodAssembly::getItems() show the right unit (g/ml) after an
@@ -371,39 +539,18 @@ function foodImportFoodInfoRow( array $pRow, int $pRowNum, array &$pResult, bool
 		$storeXref( 'VIT', null, null, json_encode( $vit ) );
 	}
 
-	if( ( $pRow['dietary_fiber'] ?? '' ) === '' ) {
-		$curationNotes[] = 'FIBR missing from source';
-		$pResult['flagged'][] = [
-			'title'    => $title,
-			'datauuid' => $datauuid,
-			'reason'   => 'FIBR missing from source',
-		];
-	}
-
-	// Curation flag: the human-readable reason goes straight onto the component's own
-	// liberty_content.data (wrapped in <p>, visible on view_component.php without
-	// digging into the xref tabs) — not REM's own data field, which was only ever a
-	// stopgap before this became the settled convention (see project_food_package_
-	// scoping memory, "REM's xkey_ext/data split"). REM itself gets a flag row (no
-	// data payload, that's on liberty_content.data now) with xkey_ext='REVIEW' —
-	// the outstanding-work flag itself, "this needs review", not "reviewed and
-	// accepted" (confirmed with Lester 2026-08-16 after a few rounds of me having the
-	// polarity backwards; renamed from 'CORRECT' 2026-08-17, ambiguous as "this is
-	// correct"). list_review.php's query finds outstanding work by this flag
-	// directly (xkey_ext='REVIEW'), so a fresh import against a known
-	// export correctly re-flags every row still needing a look — that's the real,
-	// expected to-do list, not something that starts empty. Clearing the flag (edit_
-	// component.tpl's tick floaticon) is the only thing that marks a component done,
-	// same as Gelatelli's WT/PCK fix.
+	// FIBR-missing and no-usable-basis curation checks + the note itself are computed
+	// up front now (folded into the single store() call above) — REM just needs the
+	// flag row itself here. xkey_ext='REVIEW' is the outstanding-work flag itself,
+	// "this needs review", not "reviewed and accepted" (confirmed with Lester
+	// 2026-08-16 after a few rounds of me having the polarity backwards; renamed from
+	// 'CORRECT' 2026-08-17, ambiguous as "this is correct"). list_review.php's query
+	// finds outstanding work by this flag directly (xkey_ext='REVIEW'), so a fresh
+	// import against a known export correctly re-flags every row still needing a
+	// look — that's the real, expected to-do list, not something that starts empty.
+	// Clearing the flag (edit_component.tpl's tick floaticon) is the only thing that
+	// marks a component done, same as Gelatelli's WT/PCK fix.
 	if( $curationNotes ) {
-		// verifyComponentData() requires 'title' on every store() call, not just
-		// create — re-pass the same title, otherwise this update fails validation.
-		// Plain text, no <p> wrapper — format_guid is forced to 'simpletext' in
-		// FoodComponent::verifyComponentData(), which renders line breaks itself at
-		// display time (nl2br), so hand-written HTML here would just show up as
-		// literal escaped tags instead of being rendered.
-		$noteHash = [ 'content_id' => $contentId, 'title' => $title, 'edit' => implode( '; ', $curationNotes ) ];
-		$component->store( $noteHash );
 		$storeXref( 'REM', null, 'REVIEW' );
 	}
 }
