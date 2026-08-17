@@ -38,6 +38,7 @@ $gBitInstaller->registerContentObjects( FOOD_PKG_NAME, [
 // ### Requirements
 $gBitInstaller->registerRequirements( FOOD_PKG_NAME, [
 	'liberty' => [ 'min' => '5.0.1' ],
+	'contact' => [ 'min' => '5.0.2' ],
 ] );
 
 // ### Xref seed data
@@ -87,7 +88,7 @@ $xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,
 // native units per sub-field, confirmed against real data (Kipper vitamin_d=15 can
 // only be mcg, not mg — 15mg would be ~600x RDA) — stored with unit-suffixed JSON
 // keys (vitamin_d_mcg, vitamin_c_mg, etc.) rather than one blob-wide unit.
-$xrefTypes[] = "INSERT INTO `{$X}liberty_xref_group` (`x_group`,`content_type_guid`,`title`,`sort_order`,`role_id`,`type_href`,`template`) VALUES ('nutrition','foodcomponent','Nutrition',1,3,'','')";
+$xrefTypes[] = "INSERT INTO `{$X}liberty_xref_group` (`x_group`,`content_type_guid`,`title`,`sort_order`,`role_id`,`type_href`,`template`) VALUES ('nutrition','foodcomponent','Nutrition',2,3,'','')";
 
 // Scalar nutrition items — worth individually browsing/sorting/tidying, own row each.
 // FIBR deliberately promoted alongside PROT (Samsung's own app buries it; Lester rates
@@ -108,7 +109,8 @@ $xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,
 $xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('VIT','foodcomponent','nutrition','Vitamins (mixed units, per 100g)',0,3,'','json',NULL)";
 $xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('MIN','foodcomponent','nutrition','Minerals (mg, per 100g)',        0,3,'','json',NULL)";
 
-// ── foodcomponent-specific group (sort_order=2: quantity) — pantry/movement tracking,
+// ── foodcomponent-specific group (sort_order=1: quantity, moved ahead of nutrition
+// 2026-08-17) — pantry/movement tracking,
 // entirely separate from the nutrition group above. Modeled on Stock's SGL/PCK/SHT/VOL
 // (stock_component quantity group), adapted for food: SHT (sheet-cutting, PCB-specific)
 // doesn't apply here; WT (weight) is new, no food-related use has come up in Stock
@@ -116,12 +118,19 @@ $xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,
 // PCK is NOT a competing type (mirrors Stock's own template='value' distinction), it's
 // a stored pack-size multiplier feeding into whichever type the component actually
 // uses (e.g. eggs: PCK=6 feeding SGL; cereal: PCK≈500 feeding WT).
-$xrefTypes[] = "INSERT INTO `{$X}liberty_xref_group` (`x_group`,`content_type_guid`,`title`,`sort_order`,`role_id`,`type_href`,`template`) VALUES ('quantity','foodcomponent','Quantity',2,3,'','')";
+$xrefTypes[] = "INSERT INTO `{$X}liberty_xref_group` (`x_group`,`content_type_guid`,`title`,`sort_order`,`role_id`,`type_href`,`template`) VALUES ('quantity','foodcomponent','Quantity',1,3,'','')";
 
 $xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('SGL','foodcomponent','quantity','Single unit (count)', 0,3,'','text', NULL)";
 $xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('WT', 'foodcomponent','quantity','Weight (g)',           0,3,'','text', NULL)";
 $xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('VOL','foodcomponent','quantity','Volume (ml)',          0,3,'','text', NULL)";
 $xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('PCK','foodcomponent','quantity','Pack size',            0,3,'','value',NULL)";
+// SUP: real xref to the supplier's Contact content_id (not a text string), mirroring
+// Stock's own #SUP pattern exactly (see stock's 'supplier' group) — moves supplier
+// out of the title text (Samsung bakes it in as "Ice cream sandwich (Gelatelli)")
+// into something filterable. multiple=1 like Stock's #SUP: a generic product can
+// legitimately have several real suppliers. No package-level 'supplier' group here
+// unlike Stock — added directly under quantity instead, one item is enough for now.
+$xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('SUP','foodcomponent','quantity','Supplier',              1,3,'../contact/?content_id=','sup',NULL)";
 // REM is also doing double duty until FoodMovement/stocktake actually needs its
 // numeric value: `xkey_ext` holds an outstanding-work tag — 'REVIEW' means "this
 // needs review" (set by the importer, cleared by hand via edit_component.tpl's
