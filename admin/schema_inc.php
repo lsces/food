@@ -102,12 +102,15 @@ $xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,
 $xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('SOD', 'foodcomponent','nutrition','Sodium (mg, per 100g)',        0,3,'','text',NULL)";
 
 // Compound nutrition items — long-tail fields nobody browses individually, one row
-// each, JSON payload in liberty_xref.data. No generic JSON-xref mechanism exists in
-// liberty yet, so 'json' is a food-package-local template (still to build) rather
-// than a liberty one — see project_food_package_scoping memory.
-$xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('FAT','foodcomponent','nutrition','Fat breakdown (mg, per 100g)',    0,3,'','json',NULL)";
-$xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('VIT','foodcomponent','nutrition','Vitamins (mixed units, per 100g)',0,3,'','json',NULL)";
-$xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('MIN','foodcomponent','nutrition','Minerals (mg, per 100g)',        0,3,'','json',NULL)";
+// each, JSON payload in liberty_xref.data. 'json-list' is a generic liberty item
+// template (view_xref_json-list_item.tpl, added 2026-08-17) — each key renders as its
+// own line in a nested table within the cell, not separate outer rows (list_xref.tpl
+// owns the outer <tr> per xref row, an item template can't add more — see liberty's
+// MANUAL.md). No edit_xref_json-list_item.tpl yet, falls back to the generic text
+// editor.
+$xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('FAT','foodcomponent','nutrition','Fat breakdown (mg, per 100g)',    0,3,'','json-list',NULL)";
+$xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('VIT','foodcomponent','nutrition','Vitamins (mixed units, per 100g)',0,3,'','json-list',NULL)";
+$xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('MIN','foodcomponent','nutrition','Minerals (mg, per 100g)',        0,3,'','json-list',NULL)";
 
 // ── foodcomponent-specific group (sort_order=1: quantity, moved ahead of nutrition
 // 2026-08-17) — pantry/movement tracking,
