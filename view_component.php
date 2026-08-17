@@ -26,7 +26,7 @@ if( !$gContent->isValid() ) {
 	if( !empty( $_REQUEST['content_id'] ) ) {
 		$gBitSystem->fatalError( KernelTools::tra( 'No component exists with the given ID' ), null, null, HttpStatusCodes::HTTP_NOT_FOUND );
 	}
-	KernelTools::bit_redirect( FOOD_PKG_URL.'list_corrections.php', HttpStatusCodes::HTTP_FOUND );
+	KernelTools::bit_redirect( FOOD_PKG_URL.'list_review.php', HttpStatusCodes::HTTP_FOUND );
 	die;
 }
 

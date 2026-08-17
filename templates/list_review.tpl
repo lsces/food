@@ -11,7 +11,7 @@
 		</p>
 		<p>{tr}Mark a component done: open it and click the tick icon once it's fully fixed.{/tr}</p>
 
-		{if $corrections}
+		{if $reviewItems}
 			<table class="table table-condensed">
 				<thead>
 					<tr>
@@ -21,7 +21,7 @@
 					</tr>
 				</thead>
 				<tbody>
-					{foreach $corrections as $c}
+					{foreach $reviewItems as $c}
 					<tr>
 						<td><a href="view_component.php?content_id={$c.content_id}">{$c.title|escape}</a></td>
 						<td>{$c.usage_count}</td>

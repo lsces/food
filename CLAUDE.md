@@ -124,25 +124,29 @@ Entirely separate axis from nutrition above — don't conflate them. Built in `s
   derived by summing FoodMovement** — deliberate divergence from Stock's always-aggregate
   `list_stock.php` model, because Food's ledger is known-incomplete (no historical movement_out).
   **Also doing double duty as the curation-progress tag until FoodMovement needs it for real**:
-  `xkey_ext` = `'CORRECT'` is the outstanding-work flag *itself* — "this needs correcting", not
+  `xkey_ext` = `'REVIEW'` is the outstanding-work flag *itself* — "this needs review", not
   "reviewed and fixed" (took a few rounds to nail the polarity, see the 2026-08-16 session log
-  below) — set by the importer at import time, cleared by hand via `edit_component.tpl`'s tick
-  floaticon once a component is actually fixed. `data` (on `liberty_content`, not `REM` itself) =
-  a free-text note, decoupled from that status — starts as the importer's own curation reason, but
+  below; renamed from `'CORRECT'` 2026-08-17 — read ambiguously as "this is correct" rather than
+  "needs correcting", flagged as confusing especially for non-English speakers) — set by the
+  importer at import time, cleared by hand via `edit_component.tpl`'s tick floaticon once a
+  component is actually fixed. `data` (on `liberty_content`, not `REM` itself) = a free-text note,
+  decoupled from that status — starts as the importer's own curation reason, but
   editable/replaceable at any time without affecting the report, and other components will gain
   notes there for unrelated reasons too.
 
-### Curation progress: `list_corrections.php`
+### Curation progress: `list_review.php`
 Live DB report (not a CSV dump) — joins `foodcomponent` against its `REM` xref, ranks by how many
 `FoodAssembly` item-xref rows reference each one (`xref`=content_id, across
 `BREAKFAST`/`LUNCH`/`DINNER`/`MSNK`/`ESNK`), so the highest-impact fixes surface first. Confirmed
 useful in practice: 1109 flagged `food_intake` rows traced back to only 270 distinct components,
 top 2 alone a third of all flags — nearly all rooted in the same cause (`food_info`'s own
 `metric_serving_amount`/`unit` being a Samsung serving-code or blank, no real gram weight
-anywhere in the chain). **The importer sets `xkey_ext='CORRECT'` on every flagged row at import
+anywhere in the chain). **The importer sets `xkey_ext='REVIEW'` on every flagged row at import
 time** (re-running against the same known export re-flags the same ~334 rows — that's the real,
 expected to-do list right after import, not something that starts empty) — only *clearing* it is
-a manual step, done once a component is actually fixed.
+a manual step, done once a component is actually fixed. (File was `list_corrections.php` until
+2026-08-17, renamed alongside the flag value — see `isFlaggedForReview()`/`clearReviewFlag()`/
+`getReviewXrefId()` on `FoodComponent`, formerly `...Correction...`.)
 
 ## food_info importer notes (2026-08-16)
 

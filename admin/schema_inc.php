@@ -123,15 +123,17 @@ $xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,
 $xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('VOL','foodcomponent','quantity','Volume (ml)',          0,3,'','text', NULL)";
 $xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('PCK','foodcomponent','quantity','Pack size',            0,3,'','value',NULL)";
 // REM is also doing double duty until FoodMovement/stocktake actually needs its
-// numeric value: `xkey_ext` holds an outstanding-work tag — 'CORRECT' means "this
-// needs correcting" (set by the importer, cleared by hand via edit_component.tpl's
+// numeric value: `xkey_ext` holds an outstanding-work tag — 'REVIEW' means "this
+// needs review" (set by the importer, cleared by hand via edit_component.tpl's
 // tick floaticon once fixed), not "reviewed and fixed" — otherwise-spare column, no
-// reason to add a dedicated xref item just for a status word. `data` (on
-// liberty_content, not REM itself) is a free-text note, completely decoupled from
-// that status — starts as the food_info importer's own curation flag (no gram
-// basis, missing FIBR) but can be edited/replaced with any manual note at any time
-// without affecting anything, since list_corrections.php only ever reads `xkey_ext`
-// to decide what's still outstanding, never the note's content.
+// reason to add a dedicated xref item just for a status word. (Was 'CORRECT' until
+// 2026-08-17 — renamed, it read ambiguously as "this is correct" rather than "needs
+// correcting".) `data` (on liberty_content, not REM itself) is a free-text note,
+// completely decoupled from that status — starts as the food_info importer's own
+// curation flag (no gram basis, missing FIBR) but can be edited/replaced with any
+// manual note at any time without affecting anything, since list_review.php only
+// ever reads `xkey_ext` to decide what's still outstanding, never the note's
+// content.
 $xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('REM','foodcomponent','quantity','Remaining stock',      0,3,'','value',NULL)";
 
 // ── foodassembly group (sort_order=0: 'type', not 'items' — 'items' reads as

@@ -21,11 +21,11 @@
  * basis doesn't actually tell us weight vs volume) — flagged in curation_needed.csv,
  * with the reason written to the component's
  * own liberty_content.data (visible on view_component.php) and a bare REM xref row
- * (flag-only, no data payload) marking it. xkey_ext='CORRECT' is the outstanding-work
- * flag itself — "this needs correcting" — set by the importer at import time and
- * cleared by hand (edit_component.tpl's tick floaticon) once a component is actually
- * fixed; see list_corrections.php's own docblock for the full semantics. Missing FIBR
- * gets the same treatment.
+ * (flag-only, no data payload) marking it. xkey_ext='REVIEW' is the outstanding-work
+ * flag itself — "this needs review" — set by the importer at import time and cleared
+ * by hand (edit_component.tpl's tick floaticon) once a component is actually fixed;
+ * see list_review.php's own docblock for the full semantics. Missing FIBR gets the
+ * same treatment.
  *
  * @package food
  */
@@ -385,11 +385,12 @@ function foodImportFoodInfoRow( array $pRow, int $pRowNum, array &$pResult, bool
 	// digging into the xref tabs) — not REM's own data field, which was only ever a
 	// stopgap before this became the settled convention (see project_food_package_
 	// scoping memory, "REM's xkey_ext/data split"). REM itself gets a flag row (no
-	// data payload, that's on liberty_content.data now) with xkey_ext='CORRECT' —
-	// the outstanding-work flag itself, "this needs correcting", not "reviewed and
+	// data payload, that's on liberty_content.data now) with xkey_ext='REVIEW' —
+	// the outstanding-work flag itself, "this needs review", not "reviewed and
 	// accepted" (confirmed with Lester 2026-08-16 after a few rounds of me having the
-	// polarity backwards). list_corrections.php's query finds outstanding work by
-	// this flag directly (xkey_ext='CORRECT'), so a fresh import against a known
+	// polarity backwards; renamed from 'CORRECT' 2026-08-17, ambiguous as "this is
+	// correct"). list_review.php's query finds outstanding work by this flag
+	// directly (xkey_ext='REVIEW'), so a fresh import against a known
 	// export correctly re-flags every row still needing a look — that's the real,
 	// expected to-do list, not something that starts empty. Clearing the flag (edit_
 	// component.tpl's tick floaticon) is the only thing that marks a component done,
@@ -403,6 +404,6 @@ function foodImportFoodInfoRow( array $pRow, int $pRowNum, array &$pResult, bool
 		// literal escaped tags instead of being rendered.
 		$noteHash = [ 'content_id' => $contentId, 'title' => $title, 'edit' => implode( '; ', $curationNotes ) ];
 		$component->store( $noteHash );
-		$storeXref( 'REM', null, 'CORRECT' );
+		$storeXref( 'REM', null, 'REVIEW' );
 	}
 }

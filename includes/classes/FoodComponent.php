@@ -223,19 +223,19 @@ class FoodComponent extends LibertyContent {
 	}
 
 	/**
-	 * The REM xref row currently flagging this component 'CORRECT' (needs
-	 * correcting — see list_corrections.php's docblock for the full semantics),
-	 * found by scanning the already-loaded $this->mXrefInfo rather than a fresh
-	 * query — the caller (edit_component.php) has always already called
-	 * loadXrefInfo() to render the Quantity tab, so this is the same data.
+	 * The REM xref row currently flagging this component 'REVIEW' (needs
+	 * review — see list_review.php's docblock for the full semantics), found by
+	 * scanning the already-loaded $this->mXrefInfo rather than a fresh query —
+	 * the caller (edit_component.php) has always already called loadXrefInfo()
+	 * to render the Quantity tab, so this is the same data.
 	 *
 	 * @return int|null  The REM row's xref_id if flagged, else null (either
 	 *                    unflagged, or loadXrefInfo() hasn't been called).
 	 */
-	public function getCorrectionXrefId(): ?int {
+	public function getReviewXrefId(): ?int {
 		foreach( $this->mXrefInfo->mGroups ?? [] as $group ) {
 			foreach( $group->mXrefs as $xref ) {
-				if( $xref['item'] === 'REM' && $xref['xkey_ext'] === 'CORRECT' ) {
+				if( $xref['item'] === 'REM' && $xref['xkey_ext'] === 'REVIEW' ) {
 					return (int)$xref['xref_id'];
 				}
 			}
@@ -243,25 +243,25 @@ class FoodComponent extends LibertyContent {
 		return null;
 	}
 
-	/** @return bool  Whether this component is still on list_corrections.php's outstanding list. */
-	public function isFlaggedForCorrection(): bool {
-		return $this->getCorrectionXrefId() !== null;
+	/** @return bool  Whether this component is still on list_review.php's outstanding list. */
+	public function isFlaggedForReview(): bool {
+		return $this->getReviewXrefId() !== null;
 	}
 
 	/**
-	 * Clear the outstanding-correction flag, once a human has fully fixed this
+	 * Clear the outstanding-review flag, once a human has fully fixed this
 	 * component (see edit_component.tpl's tick floaticon). Updates the existing
 	 * REM row via LibertyXref::store() rather than a raw UPDATE, so verify()
 	 * stamps last_update_date normally — clearing is itself a real, timestamped
 	 * edit, not a data-hack. The row itself (and the 'REM' item's very existence)
-	 * stays in place permanently — that's what keeps list_corrections.php's
+	 * stays in place permanently — that's what keeps list_review.php's
 	 * total-flagged count accurate even after every outstanding item is cleared.
 	 *
 	 * @return bool  TRUE if a flagged REM row was found and cleared, FALSE if
 	 *               there was nothing to clear.
 	 */
-	public function clearCorrectionFlag(): bool {
-		$xrefId = $this->getCorrectionXrefId();
+	public function clearReviewFlag(): bool {
+		$xrefId = $this->getReviewXrefId();
 		if( !$xrefId ) {
 			return false;
 		}
