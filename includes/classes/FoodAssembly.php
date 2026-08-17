@@ -307,6 +307,13 @@ class FoodAssembly extends LibertyContent {
 		return self::MEAL_TYPE_LABELS[$pItem] ?? $pItem;
 	}
 
+	/** Referenced FoodComponent's own quantity-type marker (foodcomponent's quantity
+	 *  group) → display unit suffix, for getItems()'s quantity_unit column. */
+	public const QUANTITY_UNIT_LABELS = [
+		'WT'  => 'g',
+		'VOL' => 'ml',
+	];
+
 	/**
 	 * Which single meal-type item code this assembly actually uses — the item code
 	 * itself is the type marker (see class docblock), so this is just "which of the
@@ -325,25 +332,36 @@ class FoodAssembly extends LibertyContent {
 
 	/**
 	 * This assembly's ingredient rows (whichever single meal-type item code is
-	 * populated), ordered by position, with the referenced FoodComponent's title
-	 * joined in.
+	 * populated), ordered by position, with the referenced FoodComponent's title,
+	 * display URL (a real backlink to the component), and declared quantity-type unit
+	 * (its own quantity group's WT/VOL marker, if any) joined in.
 	 *
 	 * @return array  Each row: xref_id, item, component_content_id (xref), quantity
-	 *                (xkey), xorder, component_title.
+	 *                (xkey), xorder, component_title, component_display_url,
+	 *                quantity_unit ('g'/'ml'/'').
 	 */
 	public function getItems(): array {
 		if( !$this->isValid() ) {
 			return [];
 		}
-		return $this->mDb->getAll(
+		$rows = $this->mDb->getAll(
 			"SELECT x.`xref_id`, x.`item`, x.`xref` AS component_content_id, x.`xkey` AS quantity, x.`xorder`,
-					lc.`title` AS component_title
+					lc.`title` AS component_title,
+					( SELECT FIRST 1 u.`item` FROM `".BIT_DB_PREFIX."liberty_xref` u
+						WHERE u.`content_id` = x.`xref` AND u.`item` IN ('WT','VOL')
+						ORDER BY CASE u.`item` WHEN 'VOL' THEN 0 ELSE 1 END ) AS unit_item
 				FROM `".BIT_DB_PREFIX."liberty_xref` x
 				JOIN `".BIT_DB_PREFIX."liberty_content` lc ON ( lc.`content_id` = x.`xref` )
 				WHERE x.`content_id` = ? AND x.`item` IN ('".implode( "','", array_keys( self::MEAL_TYPE_LABELS ) )."')
 				ORDER BY x.`xorder`",
 			[ $this->mContentId ]
 		);
+		foreach( $rows as &$row ) {
+			$row['quantity_unit'] = self::QUANTITY_UNIT_LABELS[$row['unit_item']] ?? '';
+			$urlHash = [ 'content_id' => $row['component_content_id'] ];
+			$row['component_display_url'] = FoodComponent::getDisplayUrlFromHash( $urlHash );
+		}
+		return $rows;
 	}
 
 	/**

@@ -38,8 +38,8 @@
 			<tbody>
 				{foreach $items as $i}
 				<tr>
-					<td>{$i.component_title|escape}</td>
-					<td>{$i.quantity|escape}</td>
+					<td><a href="{$i.component_display_url|escape}">{$i.component_title|escape}</a></td>
+					<td>{$i.quantity|escape}{$i.quantity_unit|escape}</td>
 					<td>
 						<span class="actionicon">
 							{smartlink ititle="Edit" ipackage="liberty" ifile="edit_xref.php" biticon="edit" content_id=$gContent->mContentId xref_id=$i.xref_id}
