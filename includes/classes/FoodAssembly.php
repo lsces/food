@@ -357,7 +357,7 @@ class FoodAssembly extends LibertyContent {
 			[ $this->mContentId ]
 		);
 		foreach( $rows as &$row ) {
-			$row['quantity_unit'] = self::QUANTITY_UNIT_LABELS[$row['unit_item']] ?? '';
+			$row['quantity_unit'] = self::QUANTITY_UNIT_LABELS[$row['unit_item'] ?? ''] ?? '';
 			$urlHash = [ 'content_id' => $row['component_content_id'] ];
 			$row['component_display_url'] = FoodComponent::getDisplayUrlFromHash( $urlHash );
 		}
