@@ -270,6 +270,83 @@ class FoodComponent extends LibertyContent {
 		return (bool)$xref->store( $pHash );
 	}
 
+	/**
+	 * Return a paged, keyed list of components — every FoodComponent, not just the
+	 * ones flagged for review (see list_review.php for that narrower view).
+	 *
+	 * Recognised filter keys: search (title match), sup (supplier content_id — only
+	 * components with a matching SUP xref), sort_mode.
+	 * Sets $pListHash['cant'] on return.
+	 *
+	 * @param  array $pListHash  Filter and pagination params; modified in place.
+	 * @return array             content_id-keyed result rows.
+	 */
+	public function getList( &$pListHash ) {
+		// Set before prepGetList() runs — it defaults an empty sort_mode to
+		// last_modified_desc itself, so checking/setting after would always be too
+		// late to have any effect.
+		if( empty( $pListHash['sort_mode'] ) ) {
+			$pListHash['sort_mode'] = 'title_asc';
+		}
+		LibertyContent::prepGetList( $pListHash );
+		$ret = $bindVars = [];
+		$selectSql = $whereSql = $joinSql = '';
+
+		$whereSql .= " AND lc.`content_type_guid` = '".FOODCOMPONENT_CONTENT_TYPE_GUID."'";
+
+		if( !empty( $pListHash['search'] ) ) {
+			$term = '%'.strtoupper( $pListHash['search'] ).'%';
+			$whereSql .= " AND (UPPER(lc.`title`) LIKE ? OR UPPER(lc.`data`) LIKE ?) ";
+			$bindVars[] = $term;
+			$bindVars[] = $term;
+		}
+
+		if( $this->verifyId( $pListHash['sup'] ?? 0 ) ) {
+			$whereSql .= " AND EXISTS (
+				SELECT 1 FROM `".BIT_DB_PREFIX."liberty_xref` sx
+				WHERE sx.`content_id` = lc.`content_id` AND sx.`item` = 'SUP' AND sx.`xref` = ?
+			)";
+			$bindVars[] = (int)$pListHash['sup'];
+		}
+
+		$this->getServicesSql( 'content_list_sql_function', $selectSql, $joinSql, $whereSql, $bindVars );
+
+		$X = BIT_DB_PREFIX;
+		$selectSql .= ", (SELECT FIRST 1 shop.`title` FROM `{$X}liberty_xref` sx
+			INNER JOIN `{$X}liberty_content` shop ON ( shop.`content_id` = sx.`xref` )
+			WHERE sx.`content_id` = lc.`content_id` AND sx.`item` = 'SUP' ) AS `supplier_title`";
+		$selectSql .= ", (SELECT COUNT(*) FROM `{$X}liberty_xref` rx WHERE rx.`content_id` = lc.`content_id` AND rx.`item` = 'REM' AND rx.`xkey_ext` = 'REVIEW') AS `needs_review`";
+
+		$orderby = !empty( $pListHash['sort_mode'] )
+			? " ORDER BY ".$this->mDb->convertSortmode( $pListHash['sort_mode'] )
+			: " ORDER BY lc.`title`";
+
+		if( !empty( $whereSql ) ) {
+			$whereSql = substr_replace( $whereSql, ' WHERE ', 0, 4 );
+		}
+
+		$pListHash['cant'] = (int)$this->mDb->getOne(
+			"SELECT COUNT(DISTINCT lc.`content_id`)
+			 FROM `".BIT_DB_PREFIX."liberty_content` lc
+				INNER JOIN `".BIT_DB_PREFIX."users_users` uu ON (uu.`user_id` = lc.`user_id`) $joinSql
+			$whereSql",
+			$bindVars
+		);
+
+		$query = "SELECT lc.`content_id` AS `hash_key`, lc.*, uu.`login`, uu.`real_name` $selectSql
+				FROM `".BIT_DB_PREFIX."liberty_content` lc
+					INNER JOIN `".BIT_DB_PREFIX."users_users` uu ON (uu.`user_id` = lc.`user_id`) $joinSql
+				$whereSql $orderby";
+		if( $rows = $this->mDb->query( $query, $bindVars, $pListHash['max_records'], $pListHash['offset'] ) ) {
+			foreach( $rows as $row ) {
+				$row['display_url'] = static::getDisplayUrlFromHash( $row );
+				$ret[$row['hash_key']] = $row;
+			}
+		}
+		LibertyContent::postGetList( $pListHash );
+		return $ret;
+	}
+
 	public function expunge(): bool {
 		if( $this->isValid() ) {
 			$this->StartTrans();
