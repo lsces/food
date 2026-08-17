@@ -66,7 +66,7 @@ $xrefItems = [];
 // Scoped directly to foodcomponent now, sidesteps both problems; if a future Food
 // content type needs its own external-reference tracking, it registers its own group
 // rather than reusing a shared package-level one.
-$xrefTypes[] = "INSERT INTO `{$X}liberty_xref_group` (`x_group`,`content_type_guid`,`title`,`sort_order`,`role_id`,`type_href`,`template`) VALUES ('external','foodcomponent','External Reference',3,3,'','')";
+$xrefTypes[] = "INSERT INTO `{$X}liberty_xref_group` (`x_group`,`content_type_guid`,`title`,`sort_order`,`role_id`,`type_href`,`template`) VALUES ('external','foodcomponent','External Reference',4,3,'','')";
 $xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('DUID','foodcomponent','external','Samsung Health datauuid',0,3,'','text',NULL)";
 // PFID = food_info.provider_food_id verbatim ('fatsecret-<id>' or 'quickinput-<uuid>').
 // Provenance ('is this a hand-entered fix') is a prefix check on this at query/curation
@@ -88,7 +88,7 @@ $xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,
 // native units per sub-field, confirmed against real data (Kipper vitamin_d=15 can
 // only be mcg, not mg — 15mg would be ~600x RDA) — stored with unit-suffixed JSON
 // keys (vitamin_d_mcg, vitamin_c_mg, etc.) rather than one blob-wide unit.
-$xrefTypes[] = "INSERT INTO `{$X}liberty_xref_group` (`x_group`,`content_type_guid`,`title`,`sort_order`,`role_id`,`type_href`,`template`) VALUES ('nutrition','foodcomponent','Nutrition',2,3,'','')";
+$xrefTypes[] = "INSERT INTO `{$X}liberty_xref_group` (`x_group`,`content_type_guid`,`title`,`sort_order`,`role_id`,`type_href`,`template`) VALUES ('nutrition','foodcomponent','Nutrition',3,3,'','')";
 
 // Scalar nutrition items — worth individually browsing/sorting/tidying, own row each.
 // FIBR deliberately promoted alongside PROT (Samsung's own app buries it; Lester rates
@@ -124,13 +124,6 @@ $xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,
 $xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('WT', 'foodcomponent','quantity','Weight (g)',           0,3,'','text', NULL)";
 $xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('VOL','foodcomponent','quantity','Volume (ml)',          0,3,'','text', NULL)";
 $xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('PCK','foodcomponent','quantity','Pack size',            0,3,'','value',NULL)";
-// SUP: real xref to the supplier's Contact content_id (not a text string), mirroring
-// Stock's own #SUP pattern exactly (see stock's 'supplier' group) — moves supplier
-// out of the title text (Samsung bakes it in as "Ice cream sandwich (Gelatelli)")
-// into something filterable. multiple=1 like Stock's #SUP: a generic product can
-// legitimately have several real suppliers. No package-level 'supplier' group here
-// unlike Stock — added directly under quantity instead, one item is enough for now.
-$xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('SUP','foodcomponent','quantity','Supplier',              1,3,'../contact/?content_id=','sup',NULL)";
 // REM is also doing double duty until FoodMovement/stocktake actually needs its
 // numeric value: `xkey_ext` holds an outstanding-work tag — 'REVIEW' means "this
 // needs review" (set by the importer, cleared by hand via edit_component.tpl's
@@ -144,6 +137,18 @@ $xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,
 // ever reads `xkey_ext` to decide what's still outstanding, never the note's
 // content.
 $xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('REM','foodcomponent','quantity','Remaining stock',      0,3,'','value',NULL)";
+
+// ── supplier group, its own tab (sort_order=2, right after quantity) — corrects the
+// 2026-08-17 decision to cram SUP into the quantity group ("cheating"), mirroring
+// Stock's own dedicated 'supplier' group instead (see stock/admin/schema_inc.php +
+// add_supplier.php + templates/stockcomponent/view_xref_sup_group.tpl, the proven real
+// pattern this is copied from). Group-level template='sup' — a custom group template
+// (view_xref_sup_group.tpl), not the generic list_xref.tpl, same reason Stock's isn't
+// generic either: a supplier row needs its own Supplier/Price/Note columns, not the
+// generic Type/Value/Notes shape. multiple=1: a generic product can legitimately have
+// several real suppliers (bought from different shops at different times).
+$xrefTypes[] = "INSERT INTO `{$X}liberty_xref_group` (`x_group`,`content_type_guid`,`title`,`sort_order`,`role_id`,`type_href`,`template`) VALUES ('supplier','foodcomponent','Supplier',2,3,'','sup')";
+$xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('SUP','foodcomponent','supplier','Supplier',              1,3,'../contact/?content_id=','sup',NULL)";
 
 // ── foodassembly group (sort_order=0: 'type', not 'items' — 'items' reads as
 // confusingly close to liberty_xref_item itself) — a meal instance's ingredient
