@@ -316,3 +316,28 @@ called for one content_id instead of a batch.
 
 Live-verified all three pages on desktop rdmcloud against the same real component (Strawberries,
 2026-08-14 Breakfast) — numbers agree exactly across all three views and the day-report refactor.
+
+## 5AD added as the last field in NUTRITION_SUMMARY_FIELDS (2026-08-18, later)
+
+Genuinely different in kind from the other eight — `5AD`'s stored value is a fixed portion-size
+*adjustment factor* (`true_portion_g/80`), not a per-100g additive nutrient, so it can't go through
+the shared `value*grams/100` scaling. `FoodComponent::scaleNutrition()` special-cases `5AD`:
+`portions = grams/(80*factor)` (0 if unflagged). Once computed, portions sum normally like
+everything else — no change needed to `sumNutrition()`.
+
+`NUTRITION_SUMMARY_FIELDS`' metadata changed from a `mass: bool` flag to an explicit `format` key
+(`mg`/`kcal`/`portions`) — a third distinct formatting rule now exists, and `portions` needs 2
+decimal places (a whole-number round would destroy the entire point of a fractional factor like
+dried fruit's `0.375`).
+
+`view_component.php` now runs its per-100g values through `scaleNutrition($raw, 100)` before
+formatting rather than passing them straight through — a no-op for the eight additive fields
+(`value*100/100` = `value`) but gives `5AD` a meaningful "portions per 100g" figure instead of the
+bare stored factor (e.g. Blueberries, factor `1` → `1.25` portions/100g, matching `100/(80*1)`).
+
+Live-verified on rdmcloud against real curated data (Lester had already flagged Strawberries,
+Blueberries, Apple, Orange, all factor `1`, while this was being built): Blueberries shows `1.25`
+on `view_component.php`; Strawberries eaten at 100g on 2026-08-14 shows `1.25` on `view_day.php`'s
+item row, correctly propagating up through the meal heading and day total (`1.25` day-wide, since
+nothing else that day was flagged); unflagged components (Malted Wheaties, Tea with Milk) show
+`0.00` throughout, not blank/error.
