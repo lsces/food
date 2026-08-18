@@ -99,7 +99,13 @@ $xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,
 $xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('CARB','foodcomponent','nutrition','Carbohydrate (mg, per 100g)',  0,3,'','text',NULL)";
 $xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('FIBR','foodcomponent','nutrition','Fibre (mg, per 100g)',         0,3,'','text',NULL)";
 $xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('SUGR','foodcomponent','nutrition','Sugar (mg, per 100g)',         0,3,'','text',NULL)";
-$xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('SOD', 'foodcomponent','nutrition','Sodium (mg, per 100g)',        0,3,'','text',NULL)";
+// SOD uses its own 'sod' edit template (food/templates/xref/foodcomponent/edit_sod_item.tpl)
+// — accepts either salt (g, UK label convention) or sodium (mg) directly, converting salt
+// to sodium at save time (see liberty/edit_xref.php's sod_salt/sod_sodium handling). No
+// dedicated view template needed — falls back to the generic text view automatically
+// (getXrefRecordTemplate()'s hardcoded final fallback), since display is just the stored
+// sodium mg value, same as every other scalar nutrition item.
+$xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('SOD', 'foodcomponent','nutrition','Sodium (mg, per 100g)',        0,3,'','sod', NULL)";
 
 // Compound nutrition items — long-tail fields nobody browses individually, one row
 // each, JSON payload in liberty_xref.data. 'json-list' is a generic liberty item
