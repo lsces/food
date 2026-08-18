@@ -263,3 +263,38 @@ off by an hour for BST-period entries. Rather than a risky in-place bulk correct
 itself for free once the planned from-scratch reinstall + reimport cycle happens (see
 [[project_food_package_scoping]]'s "Open thread, not decided" section on that reinstall) — every
 row gets freshly computed through the now-correct importer, no migration code needed.
+
+## Day-total nutrition report built (2026-08-18)
+
+`view_day.php`/`view_day.tpl` now show real nutrition, not just ingredient lists — per-item,
+per-meal (in the panel heading), and a day-total panel at the top, all driven by one canonical
+field list: `FoodComponent::NUTRITION_SUMMARY_FIELDS` (Energy/Fat/Saturates/Carbohydrate/Sugars/
+Fibre/Protein/Sodium — UK front-of-pack order). `FAT_TOTAL`/`FAT_SAT` are pulled out of `FAT`'s
+json-list blob specifically so they sit alongside the plain scalar items in the same summary,
+rather than being excluded because they live in a compound field — `VIT`/`MIN` deliberately stay
+out (detail-level, not headline).
+
+**New `FoodComponent` methods**: `getNutritionBatch(contentIds)` — one query per page load
+regardless of ingredient count (no N+1), decodes `FAT`'s JSON inline so callers never see the
+compound-field distinction. `scaleNutrition()`/`sumNutrition()`/`formatNutrition()` compose
+item → meal → day from that batch. `formatMg()` — `>=1000mg` renders as `"X.Xg"` rather than raw
+mg (e.g. `1500` → `"1.5g"`), applied to every mass field via `NUTRITION_SUMMARY_FIELDS`'s `mass`
+flag; `CAL` (kcal, not a mass) never goes through it.
+
+**Incidental fix while rebuilding the template**: `view_day.tpl`'s item rows never showed the
+g/ml unit suffix despite `FoodAssembly::getItems()` already computing `quantity_unit` — the
+2026-08-17 g/ml display work only reached `view_assembly.tpl`/`edit_assembly.tpl`, this page's own
+item table was missed since it renders independently.
+
+Live-verified against 2026-08-14's real Breakfast (Skimmed Milk/Strawberries/Tea with Milk/Malted
+Wheaties) on desktop rdmcloud — checked by hand, not just "it rendered": every item's values sum
+correctly to the meal total, and the meal total matches the day total (only meal logged that day).
+
+**Scope note**: the mg→g formatting (`formatMg()`) only touches this new report so far. The
+existing `view_component.php` Nutrition tab still shows every scalar mg value raw and unconverted
+(via liberty's generic `list_xref.tpl`/`view_text_item.tpl`, which knows nothing about Food's
+units) — a real candidate for "the few other places" this should apply, not yet done. Retrofitting
+it would need small view-only template overrides for `PROT`/`CARB`/`FIBR`/`SUGR`/`SOD` (mirroring
+`SOD`'s own edit-only-override trick in reverse — register under a shared new `template` value
+with only a `view_*_item.tpl` built, editing falls back to the existing generic `text` form
+automatically) — sketched, not built, pending confirmation this is actually wanted there too.
