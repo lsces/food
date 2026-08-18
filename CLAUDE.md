@@ -290,11 +290,29 @@ Live-verified against 2026-08-14's real Breakfast (Skimmed Milk/Strawberries/Tea
 Wheaties) on desktop rdmcloud — checked by hand, not just "it rendered": every item's values sum
 correctly to the meal total, and the meal total matches the day total (only meal logged that day).
 
-**Scope note**: the mg→g formatting (`formatMg()`) only touches this new report so far. The
-existing `view_component.php` Nutrition tab still shows every scalar mg value raw and unconverted
-(via liberty's generic `list_xref.tpl`/`view_text_item.tpl`, which knows nothing about Food's
-units) — a real candidate for "the few other places" this should apply, not yet done. Retrofitting
-it would need small view-only template overrides for `PROT`/`CARB`/`FIBR`/`SUGR`/`SOD` (mirroring
-`SOD`'s own edit-only-override trick in reverse — register under a shared new `template` value
-with only a `view_*_item.tpl` built, editing falls back to the existing generic `text` form
-automatically) — sketched, not built, pending confirmation this is actually wanted there too.
+## Nutrition display extended to view_assembly.php and view_component.php (2026-08-18, same day)
+
+Two more of "the few other places" — the third (retrofitting the *raw xref-item* mg values inside
+`view_component.php`'s generic Nutrition tab, e.g. per-row `PROT`/`CARB`/etc.) turned out not to
+be what was wanted; the actual ask was a summary block *above* that tab, reusing the same
+formatted-total shape already built for the day report, not touching the generic xref item
+templates at all — simpler, and consistent with how the day/meal totals already look.
+
+**`FoodAssembly::getItemsWithNutrition()`** — factors the per-item-scale + meal-total-sum logic
+out of `view_day.php` into a shared method (now a second real consumer, not hypothetical) so
+`view_assembly.php` and `view_day.php` don't duplicate it. Returns `items` (each gaining a
+`nutrition` key), `total` (formatted, for direct display), and `totalRaw` (unformatted, so
+`view_day.php` can still sum several meals' totals into a day total — formatted strings like
+`"1.5g"` can't themselves be summed). `view_day.php` refactored onto this method; live-verified the
+output is byte-identical to before the refactor, not just "no PHP errors."
+
+**`view_assembly.php`** — same per-item nutrition columns as the day report, plus a `<tfoot>` Total
+row (this page only ever shows one meal, so no further meal→day summing needed).
+
+**`view_component.php`** — a per-100g nutrition summary table above the existing xref tabs, using
+the component's own stored basis directly (no scaling — nothing's been "eaten" here, it's the
+label value itself). Same `getNutritionBatch()`/`formatNutrition()` pair as everywhere else, just
+called for one content_id instead of a batch.
+
+Live-verified all three pages on desktop rdmcloud against the same real component (Strawberries,
+2026-08-14 Breakfast) — numbers agree exactly across all three views and the day-report refactor.
