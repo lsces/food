@@ -11,22 +11,39 @@
 	</header>
 	<div class="body">
 		{if $items}
-			<table class="table table-condensed">
-				<thead>
-					<tr>
-						<th>{tr}Component{/tr}</th>
-						<th>{tr}Quantity{/tr}</th>
-					</tr>
-				</thead>
-				<tbody>
-					{foreach $items as $i}
-					<tr>
-						<td><a href="{$i.component_display_url|escape}">{$i.component_title|escape}</a></td>
-						<td>{$i.quantity|escape}{$i.quantity_unit|escape}</td>
-					</tr>
-					{/foreach}
-				</tbody>
-			</table>
+			<div class="table-responsive">
+				<table class="table table-condensed">
+					<thead>
+						<tr>
+							<th>{tr}Component{/tr}</th>
+							<th>{tr}Quantity{/tr}</th>
+							{foreach $nutritionFields as $key => $meta}
+								<th>{$meta.label|escape}</th>
+							{/foreach}
+						</tr>
+					</thead>
+					<tbody>
+						{foreach $items as $i}
+						<tr>
+							<td><a href="{$i.component_display_url|escape}">{$i.component_title|escape}</a></td>
+							<td>{$i.quantity|escape}{$i.quantity_unit|escape}</td>
+							{foreach $nutritionFields as $key => $meta}
+								<td>{$i.nutrition[$key]|escape}</td>
+							{/foreach}
+						</tr>
+						{/foreach}
+					</tbody>
+					<tfoot>
+						<tr>
+							<th>{tr}Total{/tr}</th>
+							<th></th>
+							{foreach $nutritionFields as $key => $meta}
+								<th>{$nutritionTotal[$key]|escape}</th>
+							{/foreach}
+						</tr>
+					</tfoot>
+				</table>
+			</div>
 		{else}
 			<p>{tr}No ingredients recorded.{/tr}</p>
 		{/if}

@@ -39,7 +39,14 @@ $gContent->loadXrefInfo();
 // from before the format was forced. Same convention as stock/view_component.tpl.
 $gContent->getParsedData();
 
-$gBitSmarty->assign( 'gContent',  $gContent );
-$gBitSmarty->assign( 'gXrefInfo', $gContent->mXrefInfo );
+// Per-100g nutrition summary shown above the xref tabs — same formatted shape as
+// view_day.php/view_assembly.php's totals, but this is just the component's own
+// stored per-100g basis directly, no scaling needed (nothing's been "eaten" here).
+$nutritionRaw = FoodComponent::getNutritionBatch( [ $gContent->mContentId ] )[$gContent->mContentId] ?? [];
+
+$gBitSmarty->assign( 'gContent',        $gContent );
+$gBitSmarty->assign( 'gXrefInfo',       $gContent->mXrefInfo );
+$gBitSmarty->assign( 'nutritionSummary', FoodComponent::formatNutrition( $nutritionRaw ) );
+$gBitSmarty->assign( 'nutritionFields',  FoodComponent::NUTRITION_SUMMARY_FIELDS );
 
 $gBitSystem->display( 'bitpackage:food/view_component.tpl', $gContent->getTitle() );

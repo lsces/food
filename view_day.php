@@ -37,46 +37,25 @@ if( !empty( $_REQUEST['create_type'] ) ) {
 	$errors = $assembly->mErrors;
 }
 
-$slots = [];
+// Nutrition: FoodAssembly::getItemsWithNutrition() does the per-item scale + meal-total
+// sum (shared with view_assembly.php, see its own docblock) — this loop just adds the
+// one further level view_assembly.php doesn't need, summing meal totals into a day total.
+$slots  = [];
+$dayRaw = array_fill_keys( array_keys( FoodComponent::NUTRITION_SUMMARY_FIELDS ), 0.0 );
 foreach( FoodAssembly::MEAL_TYPE_LABELS as $code => $label ) {
 	$contentId = FoodAssembly::lookupByDayAndType( $dayStart, $code );
 	$items = [];
+	$mealTotal = FoodComponent::formatNutrition( [] );
 	if( $contentId ) {
 		$a = new FoodAssembly( $contentId );
 		$a->load();
-		$items = $a->getItems();
+		$result    = $a->getItemsWithNutrition();
+		$items     = $result['items'];
+		$mealTotal = $result['total'];
+		$dayRaw    = FoodComponent::sumNutrition( $dayRaw, $result['totalRaw'] );
 	}
-	$slots[] = [ 'code' => $code, 'label' => $label, 'content_id' => $contentId, 'items' => $items ];
+	$slots[] = [ 'code' => $code, 'label' => $label, 'content_id' => $contentId, 'items' => $items, 'nutrition_total' => $mealTotal ];
 }
-
-// Nutrition totals — one batch lookup across every distinct component referenced
-// anywhere on the day (avoids an N+1 query per ingredient), then scaled per item and
-// summed up into meal totals and a day total. See FoodComponent::NUTRITION_SUMMARY_FIELDS
-// for the field list/order — the same list is used at every level (item/meal/day).
-$componentIds = [];
-foreach( $slots as $slot ) {
-	foreach( $slot['items'] as $item ) {
-		$componentIds[] = (int)$item['component_content_id'];
-	}
-}
-$nutritionByComponent = FoodComponent::getNutritionBatch( array_unique( $componentIds ) );
-
-$dayRaw = array_fill_keys( array_keys( FoodComponent::NUTRITION_SUMMARY_FIELDS ), 0.0 );
-foreach( $slots as &$slot ) {
-	$mealRaw = array_fill_keys( array_keys( FoodComponent::NUTRITION_SUMMARY_FIELDS ), 0.0 );
-	foreach( $slot['items'] as &$item ) {
-		$raw = FoodComponent::scaleNutrition(
-			$nutritionByComponent[(int)$item['component_content_id']] ?? [],
-			(float)$item['quantity']
-		);
-		$item['nutrition'] = FoodComponent::formatNutrition( $raw );
-		$mealRaw = FoodComponent::sumNutrition( $mealRaw, $raw );
-	}
-	unset( $item );
-	$slot['nutrition_total'] = FoodComponent::formatNutrition( $mealRaw );
-	$dayRaw = FoodComponent::sumNutrition( $dayRaw, $mealRaw );
-}
-unset( $slot );
 
 $gBitSmarty->assign( 'dateStr',          gmdate( 'Y-m-d', $dayStart ) );
 $gBitSmarty->assign( 'slots',            $slots );

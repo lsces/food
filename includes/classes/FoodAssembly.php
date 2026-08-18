@@ -365,6 +365,39 @@ class FoodAssembly extends LibertyContent {
 	}
 
 	/**
+	 * getItems() plus per-item and meal-total nutrition, in
+	 * FoodComponent::NUTRITION_SUMMARY_FIELDS shape — shared by view_day.php (one
+	 * call per meal slot) and view_assembly.php (one call for the whole page) so the
+	 * scale/sum logic lives in exactly one place.
+	 *
+	 * @return array{items: array, total: array, totalRaw: array}  'items' = getItems()'s
+	 *         rows, each gaining a 'nutrition' key (formatted, per
+	 *         FoodComponent::formatNutrition()); 'total' = the same shape, summed across
+	 *         every item; 'totalRaw' = the unformatted sum, for a caller that needs to
+	 *         combine several assemblies' totals together (e.g. view_day.php summing
+	 *         meals into a day total) before formatting — formatted strings like "1.5g"
+	 *         can't themselves be summed.
+	 */
+	public function getItemsWithNutrition(): array {
+		$items = $this->getItems();
+		$componentIds = array_unique( array_map( fn( $i ) => (int)$i['component_content_id'], $items ) );
+		$nutritionByComponent = FoodComponent::getNutritionBatch( $componentIds );
+
+		$totalRaw = array_fill_keys( array_keys( FoodComponent::NUTRITION_SUMMARY_FIELDS ), 0.0 );
+		foreach( $items as &$item ) {
+			$raw = FoodComponent::scaleNutrition(
+				$nutritionByComponent[(int)$item['component_content_id']] ?? [],
+				(float)$item['quantity']
+			);
+			$item['nutrition'] = FoodComponent::formatNutrition( $raw );
+			$totalRaw = FoodComponent::sumNutrition( $totalRaw, $raw );
+		}
+		unset( $item );
+
+		return [ 'items' => $items, 'total' => FoodComponent::formatNutrition( $totalRaw ), 'totalRaw' => $totalRaw ];
+	}
+
+	/**
 	 * Meal-type item codes already used by some *other* FoodAssembly on the same
 	 * calendar day as $pEventTime — the day-uniqueness check ("a day should only see
 	 * one of each intake type", flagged 2026-08-16, no generic bitweaver hook for

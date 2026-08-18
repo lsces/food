@@ -31,10 +31,13 @@ if( !$gContent->isValid() ) {
 
 $gContent->verifyViewPermission();
 
-$mealType = $gContent->getMealType();
+$mealType  = $gContent->getMealType();
+$nutrition = $gContent->getItemsWithNutrition();
 
-$gBitSmarty->assign( 'gContent',  $gContent );
-$gBitSmarty->assign( 'mealLabel', FoodAssembly::mealTypeLabel( $mealType ?? '' ) );
-$gBitSmarty->assign( 'items',     $gContent->getItems() );
+$gBitSmarty->assign( 'gContent',        $gContent );
+$gBitSmarty->assign( 'mealLabel',       FoodAssembly::mealTypeLabel( $mealType ?? '' ) );
+$gBitSmarty->assign( 'items',           $nutrition['items'] );
+$gBitSmarty->assign( 'nutritionTotal',  $nutrition['total'] );
+$gBitSmarty->assign( 'nutritionFields', FoodComponent::NUTRITION_SUMMARY_FIELDS );
 
 $gBitSystem->display( 'bitpackage:food/view_assembly.tpl', KernelTools::tra( 'View' ).' '.FoodAssembly::mealTypeLabel( $mealType ?? '' ) );
