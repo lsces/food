@@ -224,9 +224,18 @@ happen again:
   except the already-deliberate, still-parked deferral of restaurant/takeaway chains and
   manufacturer brands (never promised, not a gap).
 
-**Genuinely still open, smaller-ticket**: `SOD` custom edit template accepting salt not sodium
-(`sodium_mg = salt_g / 2.5 × 1000`); five-a-day portion tagging (needs sourcing, e.g. NHS "what
-counts as one portion," zero source data currently).
+**`SOD` salt/sodium edit template — built 2026-08-18.** `SOD` re-registered `template='sod'`
+(was `text`); `food/templates/xref/foodcomponent/edit_sod_item.tpl` offers Salt (g)/Sodium (mg)
+inputs, salt taking priority when filled in (`sodium_mg = salt_g / 2.5 × 1000`, computed in
+`liberty/edit_xref.php`'s save path — a small Food-specific hook alongside the existing
+`json_field` one, gated purely on `sod_salt`/`sod_sodium` presence so it can't affect any other
+item's save). **No new view template needed** — `getXrefRecordTemplate()`'s hardcoded final
+fallback is `view_text_item.tpl`, so SOD's display is untouched, still the plain generic scalar
+row. Live-verified on desktop rdmcloud against a real component (content_id 8567): salt-input
+path (0.5g → 200mg) and direct-sodium path both confirmed correct, value reverted afterward.
+
+**Genuinely still open, smaller-ticket**: five-a-day portion tagging (needs sourcing, e.g. NHS
+"what counts as one portion," zero source data currently).
 
 **BST timestamp correction — folds into the planned clean reinstall, not a separate task.** The
 importer itself (`foodParseSamsungTime()`) was already fixed 2026-08-16 to respect
