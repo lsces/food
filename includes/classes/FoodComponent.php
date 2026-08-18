@@ -22,23 +22,32 @@ class FoodComponent extends LibertyContent {
 
 	/**
 	 * The "selected list" of nutrition fields shown together wherever a nutrition
-	 * summary is needed (view_day.php's meal/day totals and per-item rows, and any
-	 * future consumer) — matches UK front-of-pack label order (Energy/Fat/Saturates/
-	 * Carbohydrate/Sugars/Fibre/Protein/Sodium). FAT_TOTAL/FAT_SAT are the only two
-	 * sub-fields pulled out of FAT's json-list blob; VIT/MIN are deliberately excluded
-	 * (detail-level, not headline nutrition). 'mass' distinguishes genuine mg-mass
-	 * values (get the >=1000mg -> "X.Xg" treatment via formatMg()) from CAL, which is
-	 * kcal, not a mass, and must never go through that conversion.
+	 * summary is needed (view_day.php's meal/day totals and per-item rows, view_
+	 * assembly.php, view_component.php, and any future consumer) — matches UK
+	 * front-of-pack label order (Energy/Fat/Saturates/Carbohydrate/Sugars/Fibre/
+	 * Protein/Sodium), with 5AD (five-a-day) appended last. FAT_TOTAL/FAT_SAT are
+	 * the only two sub-fields pulled out of FAT's json-list blob; VIT/MIN are
+	 * deliberately excluded (detail-level, not headline nutrition).
+	 *
+	 * 'format' picks how formatNutrition() renders the value — three genuinely
+	 * different kinds of number share this one list, not just a mass/non-mass split:
+	 *   'mg'       — genuine mg-mass values, >=1000mg renders as "X.Xg" (formatMg()).
+	 *   'kcal'     — CAL only; energy, not a mass, never goes through formatMg().
+	 *   'portions' — 5AD only; NOT a per-100g additive nutrient like the other eight
+	 *                (see scaleNutrition()'s special case for the actual formula) —
+	 *                a fixed portion-size adjustment factor, so it needs 2 decimal
+	 *                places, not formatMg()'s mg/g rounding or CAL's whole-number one.
 	 */
 	public const NUTRITION_SUMMARY_FIELDS = [
-		'CAL'       => [ 'label' => 'Energy',       'mass' => false, 'unit' => 'kcal' ],
-		'FAT_TOTAL' => [ 'label' => 'Fat',          'mass' => true ],
-		'FAT_SAT'   => [ 'label' => 'Saturates',    'mass' => true ],
-		'CARB'      => [ 'label' => 'Carbohydrate', 'mass' => true ],
-		'SUGR'      => [ 'label' => 'Sugars',       'mass' => true ],
-		'FIBR'      => [ 'label' => 'Fibre',        'mass' => true ],
-		'PROT'      => [ 'label' => 'Protein',      'mass' => true ],
-		'SOD'       => [ 'label' => 'Sodium',       'mass' => true ],
+		'CAL'       => [ 'label' => 'Energy',       'format' => 'kcal' ],
+		'FAT_TOTAL' => [ 'label' => 'Fat',          'format' => 'mg' ],
+		'FAT_SAT'   => [ 'label' => 'Saturates',    'format' => 'mg' ],
+		'CARB'      => [ 'label' => 'Carbohydrate', 'format' => 'mg' ],
+		'SUGR'      => [ 'label' => 'Sugars',       'format' => 'mg' ],
+		'FIBR'      => [ 'label' => 'Fibre',        'format' => 'mg' ],
+		'PROT'      => [ 'label' => 'Protein',      'format' => 'mg' ],
+		'SOD'       => [ 'label' => 'Sodium',       'format' => 'mg' ],
+		'5AD'       => [ 'label' => 'Five-a-day',   'format' => 'portions' ],
 	];
 
 	/**
@@ -386,12 +395,16 @@ class FoodComponent extends LibertyContent {
 	 * query regardless of how many components, avoiding an N+1 per ingredient row.
 	 * FAT's json-list blob is decoded here so callers never need to know it's a
 	 * compound field — FAT_TOTAL/FAT_SAT come back as plain scalars like every other
-	 * field.
+	 * field. 5AD comes back as its raw stored adjustment factor (see
+	 * admin/schema_inc.php's own comment) — NOT a per-100g nutrient amount, despite
+	 * living in this same batch structure for convenience; scaleNutrition() below
+	 * knows to treat it differently.
 	 *
 	 * @param int[] $pContentIds
-	 * @return array<int,array<string,float>>  content_id => field => per-100g value.
-	 *         Every requested content_id gets all 8 keys, defaulting to 0.0 for
-	 *         whichever fields that component has no xref row for.
+	 * @return array<int,array<string,float>>  content_id => field => value. Every
+	 *         requested content_id gets all 9 keys, defaulting to 0.0 for whichever
+	 *         fields that component has no xref row for (for 5AD, 0.0 correctly
+	 *         means "not flagged, doesn't count towards five-a-day").
 	 */
 	public static function getNutritionBatch( array $pContentIds ): array {
 		global $gBitDb;
@@ -408,7 +421,7 @@ class FoodComponent extends LibertyContent {
 			"SELECT x.`content_id`, x.`item`, x.`xkey`, x.`data`
 				FROM `".BIT_DB_PREFIX."liberty_xref` x
 				JOIN `".BIT_DB_PREFIX."liberty_xref_item` s ON s.`item` = x.`item` AND s.`content_type_guid` = '".FOODCOMPONENT_CONTENT_TYPE_GUID."'
-				WHERE x.`content_id` IN ($placeholders) AND x.`item` IN ('CAL','PROT','CARB','FIBR','SUGR','SOD','FAT')",
+				WHERE x.`content_id` IN ($placeholders) AND x.`item` IN ('CAL','PROT','CARB','FIBR','SUGR','SOD','FAT','5AD')",
 			array_map( 'intval', $pContentIds )
 		);
 		foreach( $rows as $row ) {
@@ -424,11 +437,25 @@ class FoodComponent extends LibertyContent {
 		return $ret;
 	}
 
-	/** Scale a per-100g nutrition set (from getNutritionBatch()) to an actual gram quantity. */
+	/**
+	 * Scale a per-100g nutrition set (from getNutritionBatch()) to an actual gram
+	 * quantity — for the eight additive nutrients this is the obvious value*grams/100.
+	 * 5AD is deliberately different: it's not a per-100g amount, it's a fixed
+	 * portion-size adjustment factor (true_portion_g/80 — see admin/schema_inc.php),
+	 * so running it through the same linear scaling would be wrong. The correct
+	 * portions contributed by eating $pGrams of a food whose true portion size is
+	 * (80*factor)g is grams/(80*factor); 0 (not flagged) correctly gives 0 portions.
+	 * Once computed, portions ARE additive like everything else — sumNutrition()
+	 * needs no special case, only this one scaling step does.
+	 */
 	public static function scaleNutrition( array $pPer100g, float $pGrams ): array {
 		$ret = [];
 		foreach( $pPer100g as $key => $val ) {
-			$ret[$key] = (float)$val * $pGrams / 100;
+			if( $key === '5AD' ) {
+				$ret[$key] = $val > 0 ? $pGrams / ( 80 * $val ) : 0.0;
+			} else {
+				$ret[$key] = (float)$val * $pGrams / 100;
+			}
 		}
 		return $ret;
 	}
@@ -446,14 +473,20 @@ class FoodComponent extends LibertyContent {
 
 	/**
 	 * Format a raw nutrition set (scaleNutrition()/sumNutrition() output) into
-	 * display strings — mass fields go through formatMg() (>=1000mg -> "X.Xg"), CAL
-	 * stays plain rounded kcal.
+	 * display strings, per NUTRITION_SUMMARY_FIELDS's 'format': 'mg' through
+	 * formatMg() (>=1000mg -> "X.Xg"), 'kcal' as plain rounded kcal, 'portions'
+	 * (5AD) to 2 decimal places — a whole-number round would silently destroy the
+	 * whole point of a fractional adjustment factor like dried fruit's 0.375.
 	 */
 	public static function formatNutrition( array $pValues ): array {
 		$ret = [];
 		foreach( self::NUTRITION_SUMMARY_FIELDS as $key => $meta ) {
 			$val = $pValues[$key] ?? 0.0;
-			$ret[$key] = $meta['mass'] ? self::formatMg( $val ) : round( $val ).' '.$meta['unit'];
+			$ret[$key] = match( $meta['format'] ) {
+				'mg'       => self::formatMg( $val ),
+				'portions' => number_format( $val, 2 ),
+				default    => round( $val ).' kcal',
+			};
 		}
 		return $ret;
 	}

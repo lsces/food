@@ -40,13 +40,18 @@ $gContent->loadXrefInfo();
 $gContent->getParsedData();
 
 // Per-100g nutrition summary shown above the xref tabs — same formatted shape as
-// view_day.php/view_assembly.php's totals, but this is just the component's own
-// stored per-100g basis directly, no scaling needed (nothing's been "eaten" here).
-$nutritionRaw = FoodComponent::getNutritionBatch( [ $gContent->mContentId ] )[$gContent->mContentId] ?? [];
+// view_day.php/view_assembly.php's totals. Still run through scaleNutrition() at
+// 100g even though that's a no-op for the eight additive nutrients (value*100/100
+// = value, the stored basis unchanged) — it's NOT a no-op for 5AD, which needs the
+// scaling step to turn the raw stored adjustment factor into a meaningful "portions
+// per 100g" figure (e.g. dried fruit's 0.375 factor -> 100/(80*0.375) = 3.33
+// portions per 100g), consistent with the "per 100g" framing of this whole table.
+$nutritionRaw    = FoodComponent::getNutritionBatch( [ $gContent->mContentId ] )[$gContent->mContentId] ?? [];
+$nutritionPer100g = FoodComponent::scaleNutrition( $nutritionRaw, 100 );
 
-$gBitSmarty->assign( 'gContent',        $gContent );
-$gBitSmarty->assign( 'gXrefInfo',       $gContent->mXrefInfo );
-$gBitSmarty->assign( 'nutritionSummary', FoodComponent::formatNutrition( $nutritionRaw ) );
+$gBitSmarty->assign( 'gContent',         $gContent );
+$gBitSmarty->assign( 'gXrefInfo',        $gContent->mXrefInfo );
+$gBitSmarty->assign( 'nutritionSummary', FoodComponent::formatNutrition( $nutritionPer100g ) );
 $gBitSmarty->assign( 'nutritionFields',  FoodComponent::NUTRITION_SUMMARY_FIELDS );
 
 $gBitSystem->display( 'bitpackage:food/view_component.tpl', $gContent->getTitle() );
