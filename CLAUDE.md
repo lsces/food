@@ -204,3 +204,34 @@ export's `health_lester_<date>` split) has its skeleton scaffolded as of 2026-08
 different JSON xref shape than this package's planned `FAT`/`VIT`/`MIN` flat-object template
 (array-of-objects/time-series, not object-of-scalars) — see `health/MANUAL.md`'s shape taxonomy
 before assuming Food's `template='json'` design covers it.
+
+## Remaining smaller items (checked/corrected 2026-08-18, next to pick up)
+
+Two threads I'd initially mis-listed as open in a todo summary — corrected here so it doesn't
+happen again:
+
+- **Meal-type-per-day uniqueness is NOT a gap.** `view_day.php` (built 2026-08-17) shows one slot
+  per meal type; an occupied slot only ever offers viewing/editing that existing `FoodAssembly`,
+  never a second "log a new meal" action for the same slot — `createForDay()` is the only route
+  that creates a new diary entry, and it's keyed to a specific empty slot. No separate
+  `verifyAssemblyData()` uniqueness check is needed; the UI structurally can't produce a duplicate.
+  (Earlier notes calling this an open "data integrity gap" predate `view_day.php` — stale once it
+  landed.)
+- **Supplier alias handling is already done.** `foodMatchSupplier()` (built 2026-08-17) already
+  matches `Chef Select`/`Chef select`→Lidl and `By Sainsbury's`→Sainsbury's (plus `M&S Food`→Marks
+  & Spencer) as its explicit-alias stage, writing the correct `SUP` xref — this was flagged "not
+  yet built" in an earlier same-day note and never corrected once it was. Nothing outstanding here
+  except the already-deliberate, still-parked deferral of restaurant/takeaway chains and
+  manufacturer brands (never promised, not a gap).
+
+**Genuinely still open, smaller-ticket**: `SOD` custom edit template accepting salt not sodium
+(`sodium_mg = salt_g / 2.5 × 1000`); five-a-day portion tagging (needs sourcing, e.g. NHS "what
+counts as one portion," zero source data currently).
+
+**BST timestamp correction — folds into the planned clean reinstall, not a separate task.** The
+importer itself (`foodParseSamsungTime()`) was already fixed 2026-08-16 to respect
+`food_intake.csv`'s own `time_offset` column; only *already-imported* historical rows are still
+off by an hour for BST-period entries. Rather than a risky in-place bulk correction, this resolves
+itself for free once the planned from-scratch reinstall + reimport cycle happens (see
+[[project_food_package_scoping]]'s "Open thread, not decided" section on that reinstall) — every
+row gets freshly computed through the now-correct importer, no migration code needed.
