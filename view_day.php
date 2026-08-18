@@ -49,9 +49,40 @@ foreach( FoodAssembly::MEAL_TYPE_LABELS as $code => $label ) {
 	$slots[] = [ 'code' => $code, 'label' => $label, 'content_id' => $contentId, 'items' => $items ];
 }
 
-$gBitSmarty->assign( 'dateStr',   gmdate( 'Y-m-d', $dayStart ) );
-$gBitSmarty->assign( 'slots',     $slots );
-$gBitSmarty->assign( 'canCreate', $gBitUser->hasPermission( 'p_food_create' ) );
-$gBitSmarty->assign( 'errors',    $errors );
+// Nutrition totals — one batch lookup across every distinct component referenced
+// anywhere on the day (avoids an N+1 query per ingredient), then scaled per item and
+// summed up into meal totals and a day total. See FoodComponent::NUTRITION_SUMMARY_FIELDS
+// for the field list/order — the same list is used at every level (item/meal/day).
+$componentIds = [];
+foreach( $slots as $slot ) {
+	foreach( $slot['items'] as $item ) {
+		$componentIds[] = (int)$item['component_content_id'];
+	}
+}
+$nutritionByComponent = FoodComponent::getNutritionBatch( array_unique( $componentIds ) );
+
+$dayRaw = array_fill_keys( array_keys( FoodComponent::NUTRITION_SUMMARY_FIELDS ), 0.0 );
+foreach( $slots as &$slot ) {
+	$mealRaw = array_fill_keys( array_keys( FoodComponent::NUTRITION_SUMMARY_FIELDS ), 0.0 );
+	foreach( $slot['items'] as &$item ) {
+		$raw = FoodComponent::scaleNutrition(
+			$nutritionByComponent[(int)$item['component_content_id']] ?? [],
+			(float)$item['quantity']
+		);
+		$item['nutrition'] = FoodComponent::formatNutrition( $raw );
+		$mealRaw = FoodComponent::sumNutrition( $mealRaw, $raw );
+	}
+	unset( $item );
+	$slot['nutrition_total'] = FoodComponent::formatNutrition( $mealRaw );
+	$dayRaw = FoodComponent::sumNutrition( $dayRaw, $mealRaw );
+}
+unset( $slot );
+
+$gBitSmarty->assign( 'dateStr',          gmdate( 'Y-m-d', $dayStart ) );
+$gBitSmarty->assign( 'slots',            $slots );
+$gBitSmarty->assign( 'nutritionFields',  FoodComponent::NUTRITION_SUMMARY_FIELDS );
+$gBitSmarty->assign( 'dayTotal',         FoodComponent::formatNutrition( $dayRaw ) );
+$gBitSmarty->assign( 'canCreate',        $gBitUser->hasPermission( 'p_food_create' ) );
+$gBitSmarty->assign( 'errors',           $errors );
 
 $gBitSystem->display( 'bitpackage:food/view_day.tpl', KernelTools::tra( 'Day' ).': '.gmdate( 'Y-m-d', $dayStart ) );

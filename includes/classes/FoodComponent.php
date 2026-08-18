@@ -21,6 +21,27 @@ defined( 'FOODCOMPONENT_CONTENT_TYPE_GUID' ) || define( 'FOODCOMPONENT_CONTENT_T
 class FoodComponent extends LibertyContent {
 
 	/**
+	 * The "selected list" of nutrition fields shown together wherever a nutrition
+	 * summary is needed (view_day.php's meal/day totals and per-item rows, and any
+	 * future consumer) — matches UK front-of-pack label order (Energy/Fat/Saturates/
+	 * Carbohydrate/Sugars/Fibre/Protein/Sodium). FAT_TOTAL/FAT_SAT are the only two
+	 * sub-fields pulled out of FAT's json-list blob; VIT/MIN are deliberately excluded
+	 * (detail-level, not headline nutrition). 'mass' distinguishes genuine mg-mass
+	 * values (get the >=1000mg -> "X.Xg" treatment via formatMg()) from CAL, which is
+	 * kcal, not a mass, and must never go through that conversion.
+	 */
+	public const NUTRITION_SUMMARY_FIELDS = [
+		'CAL'       => [ 'label' => 'Energy',       'mass' => false, 'unit' => 'kcal' ],
+		'FAT_TOTAL' => [ 'label' => 'Fat',          'mass' => true ],
+		'FAT_SAT'   => [ 'label' => 'Saturates',    'mass' => true ],
+		'CARB'      => [ 'label' => 'Carbohydrate', 'mass' => true ],
+		'SUGR'      => [ 'label' => 'Sugars',       'mass' => true ],
+		'FIBR'      => [ 'label' => 'Fibre',        'mass' => true ],
+		'PROT'      => [ 'label' => 'Protein',      'mass' => true ],
+		'SOD'       => [ 'label' => 'Sodium',       'mass' => true ],
+	];
+
+	/**
 	 * @param int|null $pDummy      Unused — LibertyBase::getNewObject() (the default
 	 *                              factory behind getLibertyObject()/lookup()) always
 	 *                              calls `new $class(null, $contentId)`, content_id in
@@ -358,5 +379,95 @@ class FoodComponent extends LibertyContent {
 			}
 		}
 		return true;
+	}
+
+	/**
+	 * Batch per-100g lookup of NUTRITION_SUMMARY_FIELDS for a set of components — one
+	 * query regardless of how many components, avoiding an N+1 per ingredient row.
+	 * FAT's json-list blob is decoded here so callers never need to know it's a
+	 * compound field — FAT_TOTAL/FAT_SAT come back as plain scalars like every other
+	 * field.
+	 *
+	 * @param int[] $pContentIds
+	 * @return array<int,array<string,float>>  content_id => field => per-100g value.
+	 *         Every requested content_id gets all 8 keys, defaulting to 0.0 for
+	 *         whichever fields that component has no xref row for.
+	 */
+	public static function getNutritionBatch( array $pContentIds ): array {
+		global $gBitDb;
+		$fieldKeys = array_keys( self::NUTRITION_SUMMARY_FIELDS );
+		$ret = [];
+		foreach( $pContentIds as $contentId ) {
+			$ret[(int)$contentId] = array_fill_keys( $fieldKeys, 0.0 );
+		}
+		if( !$pContentIds ) {
+			return $ret;
+		}
+		$placeholders = implode( ',', array_fill( 0, count( $pContentIds ), '?' ) );
+		$rows = $gBitDb->getAll(
+			"SELECT x.`content_id`, x.`item`, x.`xkey`, x.`data`
+				FROM `".BIT_DB_PREFIX."liberty_xref` x
+				JOIN `".BIT_DB_PREFIX."liberty_xref_item` s ON s.`item` = x.`item` AND s.`content_type_guid` = '".FOODCOMPONENT_CONTENT_TYPE_GUID."'
+				WHERE x.`content_id` IN ($placeholders) AND x.`item` IN ('CAL','PROT','CARB','FIBR','SUGR','SOD','FAT')",
+			array_map( 'intval', $pContentIds )
+		);
+		foreach( $rows as $row ) {
+			$contentId = (int)$row['content_id'];
+			if( $row['item'] === 'FAT' ) {
+				$fat = json_decode( (string)$row['data'], true ) ?: [];
+				$ret[$contentId]['FAT_TOTAL'] = (float)( $fat['total_mg'] ?? 0 );
+				$ret[$contentId]['FAT_SAT']   = (float)( $fat['saturated_mg'] ?? 0 );
+			} else {
+				$ret[$contentId][$row['item']] = (float)$row['xkey'];
+			}
+		}
+		return $ret;
+	}
+
+	/** Scale a per-100g nutrition set (from getNutritionBatch()) to an actual gram quantity. */
+	public static function scaleNutrition( array $pPer100g, float $pGrams ): array {
+		$ret = [];
+		foreach( $pPer100g as $key => $val ) {
+			$ret[$key] = (float)$val * $pGrams / 100;
+		}
+		return $ret;
+	}
+
+	/** Sum any number of raw nutrition sets (e.g. several ingredients into a meal total). */
+	public static function sumNutrition( array ...$pSets ): array {
+		$ret = array_fill_keys( array_keys( self::NUTRITION_SUMMARY_FIELDS ), 0.0 );
+		foreach( $pSets as $set ) {
+			foreach( $set as $key => $val ) {
+				$ret[$key] = ( $ret[$key] ?? 0.0 ) + $val;
+			}
+		}
+		return $ret;
+	}
+
+	/**
+	 * Format a raw nutrition set (scaleNutrition()/sumNutrition() output) into
+	 * display strings — mass fields go through formatMg() (>=1000mg -> "X.Xg"), CAL
+	 * stays plain rounded kcal.
+	 */
+	public static function formatNutrition( array $pValues ): array {
+		$ret = [];
+		foreach( self::NUTRITION_SUMMARY_FIELDS as $key => $meta ) {
+			$val = $pValues[$key] ?? 0.0;
+			$ret[$key] = $meta['mass'] ? self::formatMg( $val ) : round( $val ).' '.$meta['unit'];
+		}
+		return $ret;
+	}
+
+	/**
+	 * >=1000mg switches to grams (1500 -> "1.5g"), otherwise plain rounded mg
+	 * (250 -> "250mg"). Only for genuine mg-mass values — see NUTRITION_SUMMARY_FIELDS'
+	 * 'mass' flag; CAL (kcal, not a mass) must never be passed through this.
+	 */
+	public static function formatMg( $pMg ): string {
+		$mg = (float)$pMg;
+		if( abs( $mg ) >= 1000 ) {
+			return number_format( $mg / 1000, 1 ).'g';
+		}
+		return round( $mg ).'mg';
 	}
 }

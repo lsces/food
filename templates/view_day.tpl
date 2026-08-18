@@ -11,22 +11,68 @@
 			<input type="submit" class="btn btn-default" value="{tr}Go{/tr}" />
 		</form>
 
+		<div class="panel panel-primary">
+			<div class="panel-heading">{tr}Day total{/tr}</div>
+			<div class="panel-body table-responsive">
+				<table class="table table-condensed">
+					<thead>
+						<tr>
+							{foreach $nutritionFields as $key => $meta}
+								<th>{$meta.label|escape}</th>
+							{/foreach}
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							{foreach $nutritionFields as $key => $meta}
+								<td>{$dayTotal[$key]|escape}</td>
+							{/foreach}
+						</tr>
+					</tbody>
+				</table>
+			</div>
+		</div>
+
 		{foreach $slots as $slot}
 			<div class="panel panel-default">
-				<div class="panel-heading">{$slot.label|escape}</div>
+				<div class="panel-heading">
+					{$slot.label|escape}&nbsp;
+					{if $slot.content_id}
+						<small class="text-muted">
+							&mdash;&nbsp;
+							{foreach $nutritionFields as $key => $meta name=nf}
+								{$meta.label|escape} {$slot.nutrition_total[$key]|escape}{if !$smarty.foreach.nf.last}&nbsp;&middot;&nbsp;{/if}
+							{/foreach}
+						</small>
+					{/if}
+				</div>
 				<div class="panel-body">
 					{if $slot.content_id}
 						{if $slot.items}
-							<table class="table table-condensed">
-								<tbody>
-									{foreach $slot.items as $i}
-									<tr>
-										<td>{$i.component_title|escape}</td>
-										<td>{$i.quantity|escape}</td>
-									</tr>
-									{/foreach}
-								</tbody>
-							</table>
+							<div class="table-responsive">
+								<table class="table table-condensed">
+									<thead>
+										<tr>
+											<th>{tr}Item{/tr}</th>
+											<th>{tr}Qty{/tr}</th>
+											{foreach $nutritionFields as $key => $meta}
+												<th>{$meta.label|escape}</th>
+											{/foreach}
+										</tr>
+									</thead>
+									<tbody>
+										{foreach $slot.items as $i}
+										<tr>
+											<td><a href="{$i.component_display_url|escape}">{$i.component_title|escape}</a></td>
+											<td>{$i.quantity|escape}{$i.quantity_unit|escape}</td>
+											{foreach $nutritionFields as $key => $meta}
+												<td>{$i.nutrition[$key]|escape}</td>
+											{/foreach}
+										</tr>
+										{/foreach}
+									</tbody>
+								</table>
+							</div>
 						{else}
 							<p>{tr}No ingredients yet.{/tr}</p>
 						{/if}
