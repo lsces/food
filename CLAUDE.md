@@ -197,4 +197,9 @@ same headers as the current export for every food-relevant file.
 ## Companion package: health
 
 A `health` package (weight/blood-pressure/heart-rate/sleep/exercise, from the same Samsung Health
-export's `health_lester_<date>` split) is planned but not yet scoped or scaffolded.
+export's `health_lester_<date>` split) has an architecture sketch as of 2026-08-18 —
+`health/CLAUDE.md` + `health/MANUAL.md` — but is not yet scaffolded (no repo, no schema). Its
+`jsons/` detail tier turned out to need a genuinely different JSON xref shape than this package's
+planned `FAT`/`VIT`/`MIN` flat-object template (array-of-objects/time-series, not object-of-
+scalars) — see `health/MANUAL.md`'s shape taxonomy before assuming Food's `template='json'` design
+covers it.
