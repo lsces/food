@@ -197,9 +197,10 @@ same headers as the current export for every food-relevant file.
 ## Companion package: health
 
 A `health` package (weight/blood-pressure/heart-rate/sleep/exercise, from the same Samsung Health
-export's `health_lester_<date>` split) has an architecture sketch as of 2026-08-18 —
-`health/CLAUDE.md` + `health/MANUAL.md` — but is not yet scaffolded (no repo, no schema). Its
-`jsons/` detail tier turned out to need a genuinely different JSON xref shape than this package's
-planned `FAT`/`VIT`/`MIN` flat-object template (array-of-objects/time-series, not object-of-
-scalars) — see `health/MANUAL.md`'s shape taxonomy before assuming Food's `template='json'` design
-covers it.
+export's `health_lester_<date>` split) has its skeleton scaffolded as of 2026-08-18 — own repo at
+`github.com/lsces/health`, symlinked into rdmcloud, no schema/content classes yet, same state
+`food` itself was in right after its own 2026-08-15 scaffold. Architecture sketch in
+`health/CLAUDE.md` + `health/MANUAL.md`. Its `jsons/` detail tier turned out to need a genuinely
+different JSON xref shape than this package's planned `FAT`/`VIT`/`MIN` flat-object template
+(array-of-objects/time-series, not object-of-scalars) — see `health/MANUAL.md`'s shape taxonomy
+before assuming Food's `template='json'` design covers it.
