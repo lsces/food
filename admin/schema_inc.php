@@ -125,6 +125,17 @@ $xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,
 $xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('VIT','foodcomponent','nutrition','Vitamins (mixed units, per 100g)',0,3,'','json-list','[\"vitamin_a_mcg\",\"vitamin_c_mg\",\"vitamin_d_mcg\"]')";
 $xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('MIN','foodcomponent','nutrition','Minerals (mg, per 100g)',        0,3,'','json-list','[\"potassium_mg\",\"calcium_mg\",\"iron_mg\"]')";
 
+// 5AD — five-a-day flag. Pure presence marker (row exists = counts, no row = doesn't),
+// stored value is never read — reuses the generic 'text' template purely so the existing
+// Add/Delete mechanism works, no custom template needed. Day total = SUM(grams eaten that
+// day across all diary items whose FoodComponent has a 5AD row) / 80, a flat working
+// approximation (Lester's own working figure, not exact NHS per-food portion guidance —
+// NHS caps juice/smoothies and beans/pulses at 1 portion/day regardless of quantity and
+// uses 30g not 80g for dried fruit; deliberately not modelled, simple flag is enough for
+// now). Not yet consumed anywhere — the day-total report itself isn't built, this just
+// registers the tag so components can start being flagged.
+$xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('5AD', 'foodcomponent','nutrition','Five-a-day portion (80g)',      0,3,'','text',NULL)";
+
 // ── foodcomponent-specific group (sort_order=1: quantity, moved ahead of nutrition
 // 2026-08-17) — pantry/movement tracking,
 // entirely separate from the nutrition group above. Modeled on Stock's SGL/PCK/SHT/VOL
