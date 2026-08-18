@@ -234,8 +234,17 @@ fallback is `view_text_item.tpl`, so SOD's display is untouched, still the plain
 row. Live-verified on desktop rdmcloud against a real component (content_id 8567): salt-input
 path (0.5g → 200mg) and direct-sodium path both confirmed correct, value reverted afterward.
 
-**Genuinely still open, smaller-ticket**: five-a-day portion tagging (needs sourcing, e.g. NHS
-"what counts as one portion," zero source data currently).
+**Five-a-day flag — registered 2026-08-18.** Sourcing turned out not to be needed at all — Lester's
+own working model sidesteps per-food NHS portion data entirely: `5AD` is a pure presence marker on
+`foodcomponent`'s `nutrition` group (row exists = counts, no row = doesn't; stored `xkey` value is
+never read), reusing the generic `text` template so the existing Add/Delete mechanism already does
+yes/no with zero new UI. Day total (not built yet, just the tag) = `SUM(grams eaten that day
+across flagged components) / 80` — a flat working approximation, not exact NHS guidance (NHS uses
+30g not 80g for dried fruit, caps juice/smoothies and beans/pulses at 1 portion/day regardless of
+quantity — deliberately not modelled, flagged as known but not a blocker). Hand-pushed to desktop
+rdmcloud, live-verified via the real Add flow against **Strawberries (content_id 7469)** — left
+flagged for real, not a test artifact (matches Lester's own worked example: 100g strawberries =
+1.25 portions). **Day-total aggregation/report itself is a separate next step, not built.**
 
 **BST timestamp correction — folds into the planned clean reinstall, not a separate task.** The
 importer itself (`foodParseSamsungTime()`) was already fixed 2026-08-16 to respect
