@@ -341,3 +341,29 @@ on `view_component.php`; Strawberries eaten at 100g on 2026-08-14 shows `1.25` o
 item row, correctly propagating up through the meal heading and day total (`1.25` day-wide, since
 nothing else that day was flagged); unflagged components (Malted Wheaties, Tea with Milk) show
 `0.00` throughout, not blank/error.
+
+## First real live CSV imports — 2026-08-19
+Both Samsung Health importers run clean against a real full export
+(`~/Personal/Health/Samsung Health/food_lester_20260814090949/`) for the first time: `food_info`
+(1163 components, 39 flagged to `storage/food/curation_needed.csv`), then `food_intake` (1951
+diary entries, 0 skipped). Needed a `max_execution_time` override in both `load_food_info.php`/
+`load_food_intake.php` (php-fpm's web pool caps it at 60s) - genuinely slower than an earlier
+partial run since `foodMatchSupplier()` now does real work: it was a silent no-op before
+`contact`'s supplier contacts existed (see below), writing a real `SUP` xref per matched row now.
+nginx's own `fastcgi_read_timeout` (also 60s by default) needed bumping too - PHP's own limit
+being raised doesn't help if the webserver cuts the connection first regardless. Detail in
+`/etc/webstack/CLAUDE.md`.
+
+**Supplier contacts rebuilt from scratch.** The 10 real UK-supermarket `contactbusiness` records
+`foodMatchSupplier()` needs (Tesco/Sainsbury's/Asda/Morrisons/Aldi/Lidl/Waitrose/Co-Op/Iceland/
+Marks & Spencer - the top 10 by frequency in `food_info.csv`'s bracketed supplier suffix) had been
+wiped as a side effect of unrelated `contact` package reinstall testing earlier the same session
+(not a backup issue - Firebird's backup/restore chain is DB-only, never touches `storage/`).
+Rebuilt as a fresh `storage/contact/Contacts.csv` and re-imported via `load_contacts_csv.php`.
+
+**`food` package cloned onto srv9 and srv10 for the first time** (existed on desktop only before
+today, since it's new this session) - `git clone` from desktop's local copy (same
+`ssh://root@desktop/...` convention every other package uses, not GitHub directly), symlinked
+`rdmcloud/food -> ../_bw5/food` on each. `server-pull-all.sh` needed no changes - it discovers
+packages dynamically by globbing `_bw5/*/`, not a hardcoded list, so it picked `food` up
+automatically once present.
