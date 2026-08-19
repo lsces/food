@@ -38,7 +38,7 @@ $gBitInstaller->registerContentObjects( FOOD_PKG_NAME, [
 // ### Requirements
 $gBitInstaller->registerRequirements( FOOD_PKG_NAME, [
 	'liberty' => [ 'min' => '5.0.1' ],
-	'contact' => [ 'min' => '5.0.2' ],
+	'contact' => [ 'min' => '5.0.1' ],
 ] );
 
 // ### Xref seed data
