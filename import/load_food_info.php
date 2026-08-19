@@ -19,6 +19,13 @@
 
 require_once '../../kernel/includes/setup_inc.php';
 
+// php-fpm's web pool caps max_execution_time at 60s (php.ini) - fine for normal requests, but
+// this walks every food_info row doing several DB writes each (component upsert + xref upserts,
+// now including a real SUP supplier match/write per row instead of the no-op it was while
+// contact's supplier contacts didn't exist yet) and a full run can genuinely take longer than
+// that. Same override install_packages.php already uses for its own long-running import passes.
+ini_set( 'max_execution_time', '86400' );
+
 global $gBitSystem, $gBitSmarty;
 
 $gBitSystem->verifyPackage( 'food' );

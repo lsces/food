@@ -17,6 +17,10 @@
 
 require_once '../../kernel/includes/setup_inc.php';
 
+// See load_food_info.php's own comment - same php-fpm 60s max_execution_time cap, and this file
+// (food_intake.csv, ~1.8MB vs food_info's ~330KB) has more rows to walk, not fewer.
+ini_set( 'max_execution_time', '86400' );
+
 global $gBitSystem, $gBitSmarty;
 
 $gBitSystem->verifyPackage( 'food' );
