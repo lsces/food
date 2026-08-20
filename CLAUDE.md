@@ -459,6 +459,43 @@ part didn't change, only where the form lives. This is a scoped, receipt-specifi
 cross-cutting modal/popup redesign — see [[project_modal_quick_add_ux]], still deferred as its own
 larger piece of work across Stock/Food/Contact together.
 
+## Nutrition group-edit page + a real cross-package `{jstabs}` bug fix (2026-08-20, same day)
+
+Lester's next real friction point, hit live while actually tidying receipt items: editing the
+plain scalar nutrition fields (`CAL`/`PROT`/`CARB`/`FIBR`/`SUGR`/`SOD`/`5AD`) meant one full
+`edit_xref.php` round trip *per field* — `FAT`/`VIT`/`MIN` already get a combined one-form edit via
+their `json-list` template, the scalars never did. Fixed with a scoped, non-modal page (not the
+full generic popup redesign — see [[project_modal_quick_add_ux]], still deferred):
+
+- **`edit_nutrition.php`** — one form, all seven scalar items, one submit. `SOD` reuses the same
+  salt-priority conversion as `liberty/edit_xref.php`'s own `sod_salt`/`sod_sodium` hook (replicated
+  inline since this page bypasses that controller). `FAT`/`VIT`/`MIN` deliberately left out — already
+  solved.
+- **`nutrition` xref group's `template` column changed from `''` to `'nutrition'`** (hand-pushed via
+  isql, desktop-only) — resolves to a new custom `templates/xref/foodcomponent/
+  view_nutrition_group.tpl`, a copy of liberty's generic `list_xref.tpl` plus one added "Edit all"
+  icon next to the existing "Add record" link. Row rendering itself is untouched — `FAT`/`VIT`/`MIN`/
+  `SOD`'s own item templates still resolve exactly as before.
+- **Redirects back with `&jstab=N`**, N computed at runtime via `array_search('nutrition',
+  array_keys($gContent->mXrefInfo->mGroups))` rather than hardcoded, so a future group-order change
+  (it's happened once already) can't silently break it.
+
+**Real bug found and fixed, not Food-specific**: `themes/smartyplugins/BlockJstabs.php`'s `?jstab=N`
+handling computed `$tab` but never used it — the tab-activation JS was hardcoded to a literal
+`a[href="#profile"]` selector that doesn't correspond to any real tab anywhere in this app, so
+`?jstab=N` silently never worked for *any* package using `{jstabs}` (Stock/Contact/Food, all of
+them), not just this new page. Fixed to `$('#$tabId a').eq($tab).tab('show')` — positional
+selection by index, since each tab's own href is a title-derived slug (`BlockJstab.php`, singular),
+not a numeric id, so there's no fixed target to select directly. Verified live across `jstab=0/1/2`
+against the real Quantity/Supplier/Nutrition/External tab order — all three now switch to the
+correct tab, confirmed via the generated `<script>` block's selector, not just "no error". This is
+a `themes` package fix (its own git repo), committed there separately from `food`.
+
+**Answers Lester's own framing directly**: this only solves "land back on the right tab after a
+normal page reload" — it does NOT solve "update the current page without navigating away at all",
+which is the real popup/AJAX problem (partial DOM update or live refetch on modal close) still
+parked in [[project_modal_quick_add_ux]] as the bigger, deliberately-deferred piece.
+
 **"Only REVIEW-flagged components have a `REM` xref row at all" — confirmed expected, not a bug**
 (Lester noticed this while testing the above). `ImportFoodInfo.php`'s `REM` write
 (`foodImportFoodInfoRow()`, `$storeXref('REM', null, 'REVIEW')`) only ever fires for components the

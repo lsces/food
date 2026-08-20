@@ -89,7 +89,14 @@ $xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,
 // native units per sub-field, confirmed against real data (Kipper vitamin_d=15 can
 // only be mcg, not mg — 15mg would be ~600x RDA) — stored with unit-suffixed JSON
 // keys (vitamin_d_mcg, vitamin_c_mg, etc.) rather than one blob-wide unit.
-$xrefTypes[] = "INSERT INTO `{$X}liberty_xref_group` (`x_group`,`content_type_guid`,`title`,`sort_order`,`role_id`,`type_href`,`template`) VALUES ('nutrition','foodcomponent','Nutrition',3,3,'','')";
+// template='nutrition' (added 2026-08-20) resolves to the custom
+// templates/xref/foodcomponent/view_nutrition_group.tpl — a copy of liberty's
+// generic list_xref.tpl with one extra icon (next to "Add record") linking to
+// edit_nutrition.php, the combined one-form edit for every scalar item (CAL/
+// PROT/CARB/FIBR/SUGR/SOD/5AD) in this group — those never had FAT/VIT/MIN's own
+// "edit several related values in one form" convenience, meaning tidying a few
+// fields meant one full edit_xref.php round trip per field.
+$xrefTypes[] = "INSERT INTO `{$X}liberty_xref_group` (`x_group`,`content_type_guid`,`title`,`sort_order`,`role_id`,`type_href`,`template`) VALUES ('nutrition','foodcomponent','Nutrition',3,3,'','nutrition')";
 
 // Scalar nutrition items — worth individually browsing/sorting/tidying, own row each.
 // FIBR deliberately promoted alongside PROT (Samsung's own app buries it; Lester rates
