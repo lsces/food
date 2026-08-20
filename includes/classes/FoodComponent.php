@@ -391,6 +391,81 @@ class FoodComponent extends LibertyContent {
 	}
 
 	/**
+	 * Merge this component into $pTargetContentId — for retiring an accidental
+	 * duplicate (e.g. two "Pulled BBQ Chicken" entries) once the good copy has
+	 * been identified by hand. Re-points every `liberty_xref` row that
+	 * references this component (`xref` = $this->mContentId — a FoodAssembly
+	 * ingredient line, a FoodMovement quantity line, or anything else that
+	 * happens to link here) onto the target instead, then permanently deletes
+	 * this component.
+	 *
+	 * Safe as a blanket re-point with no content-type scoping needed: content_id
+	 * is a single global sequence across every content type in this DB, so a
+	 * `xref = $this->mContentId` match can never accidentally catch an
+	 * unrelated reference — anything storing this exact id was always a
+	 * reference to this specific component, regardless of which package/item
+	 * wrote it.
+	 *
+	 * Does NOT try to reconcile this component's own attached xrefs (nutrition/
+	 * quantity/supplier/external) with the target's — those are the duplicate's
+	 * own data, discarded permanently along with it via the normal
+	 * expunge()/LibertyContent::expunge() cleanup (which already deletes every
+	 * xref row owned by this content_id). Caller is responsible for having
+	 * already confirmed the target is the one to keep.
+	 *
+	 * @param  int $pTargetContentId
+	 * @return bool  FALSE if this component isn't valid, the target id isn't a
+	 *               real FoodComponent, or target == source — see $this->mErrors.
+	 */
+	public function mergeInto( int $pTargetContentId ): bool {
+		if( !$this->isValid() ) {
+			$this->mErrors['merge'] = 'This component is not valid.';
+			return false;
+		}
+		if( !$this->verifyId( $pTargetContentId ) || $pTargetContentId === $this->mContentId ) {
+			$this->mErrors['merge'] = 'Enter a different, valid component content_id to merge into.';
+			return false;
+		}
+		$targetValid = (bool)$this->mDb->getOne(
+			"SELECT 1 FROM `".BIT_DB_PREFIX."liberty_content` WHERE `content_id` = ? AND `content_type_guid` = ?",
+			[ $pTargetContentId, FOODCOMPONENT_CONTENT_TYPE_GUID ]
+		);
+		if( !$targetValid ) {
+			$this->mErrors['merge'] = 'Target content_id is not a valid component.';
+			return false;
+		}
+
+		$this->StartTrans();
+		// Per-row via LibertyXref::store(), NOT a single blanket UPDATE — a raw
+		// UPDATE skips last_update_date entirely (verify() only stamps it through
+		// the normal insert/update path), same standing rule as
+		// feedback_no_raw_sql_hacks/FoodAssembly::changeMealType()'s identical
+		// per-row pattern. xorder must be passed explicitly on every call or
+		// verify() zeroes it (it defaults xref_store['xorder']=0 unconditionally,
+		// only overridden when the caller provides one) — confirmed necessary via
+		// this exact gotcha already documented on StockMovement's rescaling
+		// methods.
+		$rows = $this->mDb->getAll(
+			"SELECT `xref_id`, `content_id`, `item`, `xorder` FROM `".BIT_DB_PREFIX."liberty_xref` WHERE `xref` = ?",
+			[ $this->mContentId ]
+		);
+		foreach( $rows as $row ) {
+			$xref = new LibertyXref();
+			$pHash = [
+				'xref_id'    => $row['xref_id'],
+				'content_id' => $row['content_id'],
+				'item'       => $row['item'],
+				'xorder'     => (int)$row['xorder'],
+				'xref'       => $pTargetContentId,
+			];
+			$xref->store( $pHash );
+		}
+		$this->expunge();
+		$this->CompleteTrans();
+		return true;
+	}
+
+	/**
 	 * Batch per-100g lookup of NUTRITION_SUMMARY_FIELDS for a set of components — one
 	 * query regardless of how many components, avoiding an N+1 per ingredient row.
 	 * FAT's json-list blob is decoded here so callers never need to know it's a

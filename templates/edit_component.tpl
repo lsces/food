@@ -43,6 +43,25 @@
 				{/foreach}
 			{/jstabs}
 		{/if}
+
+		{if $gContent->isValid() && $gContent->hasExpungePermission()}
+			<fieldset class="merge-duplicate">
+				<legend>{tr}Merge duplicate{/tr}</legend>
+				{form id="mergeComponentForm"}
+					<input type="hidden" name="content_id" value="{$gContent->mContentId}" />
+					<div class="form-inline">
+						<div class="form-group">
+							{formlabel label="Merge into content_id" for="merge_target_id"}
+							{forminput}
+								<input type="text" class="form-control input-small" name="merge_target_id" id="merge_target_id" placeholder="{tr}e.g. 97{/tr}" />
+							{/forminput}
+						</div>
+						<button type="submit" class="btn btn-danger" name="fMerge" value="1">{tr}Merge and delete this{/tr}</button>
+					</div>
+					{formhelp note="Repoints every reference to THIS component (meals, receipts) onto the target, then permanently deletes this one. Enter the good copy's content_id — no search yet, check its URL/edit page for the number."}
+				{/form}
+			</fieldset>
+		{/if}
 	</div>
 </div>
 {/strip}

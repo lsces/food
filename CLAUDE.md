@@ -545,3 +545,73 @@ framing: "it's only how the list is built from the database that actually matter
 existing file's shape gets reused. The reusable *idea* from Stock (group shortages by supplier) still
 applies, but Food's version should be designed against its own query (REM/MIN/SUP as above), not
 built by mechanically adapting `list_stock.php`'s code.
+
+## Merge-duplicate-component feature + a real data-completeness find (2026-08-20, same day)
+
+Hit while Lester was hand-curating real components: two "Pulled BBQ Chicken" entries needed
+consolidating. Built **`FoodComponent::mergeInto(int $pTargetContentId): bool`** — re-points every
+`liberty_xref` row where `xref` = this component onto the target (safe as a blanket match with no
+content-type scoping needed: content_id is one global sequence across every content type in this
+DB, so any row referencing this exact id was always a reference to this specific component), then
+permanently deletes it via the existing `expunge()`. Wired into `edit_component.php` (`fMerge`
+branch, gated behind `verifyExpungePermission()`, `confirmDialog()` before executing) and a new
+"Merge duplicate" box on `edit_component.tpl` — plain content_id text input, no search yet
+(deliberate, per Lester: manual entry is fine for now, search would be "tidier" but isn't blocking).
+
+**Real bug caught immediately in testing, before it touched real data**: the first cut used one
+blanket `UPDATE liberty_xref SET xref=? WHERE xref=?` for the re-point — a raw SQL write, which
+skips `last_update_date` entirely (only `LibertyXref::verify()`, reached via `store()`, stamps it).
+Fixed to loop per-row through `LibertyXref::store()` instead, same standing rule as
+`feedback_no_raw_sql_hacks` and the exact pattern `FoodAssembly::changeMealType()` already uses —
+**`xorder` must be passed explicitly on every call or `verify()` zeroes it** (it unconditionally
+defaults `xref_store['xorder']=0`, only overridden when the caller provides one — the same gotcha
+already documented on `StockMovement`'s own rescaling methods).
+
+**Real merge mistake, investigated, turned out harmless**: Lester ran the feature against a real
+duplicate (content_id 1094, "Pulled BBQ Chicken (Chef Select)") but entered the wrong target
+content_id (97 — actually "Frozen Mixed Vegetables", unrelated). Checked thoroughly before doing
+anything further: 1094 had **zero** inbound `liberty_xref` references anywhere in the DB at merge
+time, so nothing got redirected to the wrong component — the only actual effect was 1094's own
+data being discarded, which is the intended outcome of retiring a duplicate. No rollback needed.
+The real surviving "good copy" was content_id **67** ("Pulled BBQ Chicken with Quinoa, Sweetcorn
+and Beans (Chef Select)") — the title Lester had already extended, confirmed via `liberty_action_log`
+(gives content_id/title/log_message even after a row's own data is gone — useful for exactly this
+kind of after-the-fact check).
+
+**Why 1094 had zero references despite Samsung's own data showing 2 real logged meals against
+it**: not a matching-rule/"first copy" thing — checked the raw `food_intake.csv`, both of two
+Samsung datauuids sharing the title "Pulled BBQ Chicken (Chef Select)" have real intake rows (21
+for 67's datauuid, 2 for 1094's). The 2 meals referencing 1094's datauuid (Dinner 2026-05-19,
+Lunch 2026-05-29) simply never got their chicken ingredient imported in the first place — 1094
+wasn't created until 2026-08-19 (a later `food_info` import run), well after those two meals'
+`FoodAssembly` records were already built, so `lookupByDatauuid()` found nothing at the time and
+the ingredient was silently dropped rather than linked to anything. Confirmed by finding both
+assemblies (2864, 2896) genuinely missing that one line in their otherwise-normal item lists.
+
+**Led to a real systemic check, at Lester's own suggestion**: total diary-xref rows in the DB
+should roughly match total `food_intake.csv` rows. It didn't — **7067 in the DB vs 7073 in the
+CSV, a gap of 8** (not the 6 first assumed from a quick count):
+- **2 confirmed**: the Pulled BBQ Chicken gap above — backfilled via `FoodAssembly::addItem()`
+  pointing at content_id 67, quantity 100 (assume-100g fallback — the underlying food_info row's
+  own `metric_serving_amount`/`unit` gives no real gram basis either, same failure mode already
+  documented for ~76 other rows), `entry_date`/`last_update_date` taken from the CSV row's own
+  `create_time` via `foodParseSamsungTime()` (not import-run time). Both assemblies verified
+  showing the new line alongside their existing items afterward.
+- **6 are `food_info_id = "meal_phone_quick_add"`** — a literal Samsung sentinel string (identical
+  across all 6 rows, not a real datauuid), used for "log calories directly, no food picked from
+  the catalog" entries. No `food_info.csv` row exists or ever will for this value —
+  `lookupByDatauuid()` correctly, permanently returns null. **Left unfixed on purpose** — this
+  isn't an orphan-duplicate case like 1094, there's no real component to point at; not something
+  to invent a placeholder for.
+- Final reconciled count: **7069** (7067 + 2). The remaining gap of 4 is the quick-add sentinel
+  rows, expected and not a bug to keep chasing.
+
+**Real latent bug found alongside this, not fixed (separate from today's work)**: 4 of the 6
+quick-add-sentinel meals (content_id 1646/1845/2009/3053) are valid `FoodAssembly` records with
+**zero** ingredient rows (since their only CSV-sourced line was always the unresolvable sentinel
+one). `FoodAssembly::lookupByEventTime()` requires an existing marker xref of the meal-type item to
+recognize a meal as already-imported — with zero ingredient rows, it finds nothing, so **a future
+full re-run of `load_food_intake.php` would create duplicate `FoodAssembly` rows for these specific
+meals** rather than recognizing them as already present. Worth a real fix (e.g. a dedicated
+zero-item marker, or matching on `event_time` alone when no marker item exists) before the next
+full food_intake re-import — not touched today, flagged for whenever that's next needed.

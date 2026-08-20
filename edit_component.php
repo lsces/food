@@ -60,6 +60,35 @@ if( !empty( $_REQUEST['clear_review'] ) && $gContent->isValid() ) {
 	}
 }
 
+// Merge a duplicate into another component — see FoodComponent::mergeInto()'s
+// docblock. Destructive (permanently deletes this component), so gated behind
+// expunge permission and a confirm step, same pattern as edit_movement.php's
+// own delete flow.
+if( !empty( $_REQUEST['fMerge'] ) && $gContent->isValid() ) {
+	$gContent->verifyExpungePermission();
+	$mergeTargetId = isset( $_REQUEST['merge_target_id'] ) && is_numeric( $_REQUEST['merge_target_id'] )
+		? (int)$_REQUEST['merge_target_id'] : 0;
+	if( !empty( $_REQUEST['cancel'] ) ) {
+		header( 'Location: '.$gContent->getEditUrl() );
+		die;
+	} elseif( empty( $_REQUEST['confirm'] ) ) {
+		$gBitSystem->confirmDialog(
+			[ 'fMerge' => true, 'content_id' => $gContent->mContentId, 'merge_target_id' => $mergeTargetId ],
+			[
+				'confirm_item' => $gContent->getTitle(),
+				'warning'      => KernelTools::tra( 'Merge "'.$gContent->getTitle().'" into component #'.$mergeTargetId.'? Every reference to this component is repointed there, then this component is permanently deleted.' ),
+				'error'        => KernelTools::tra( 'This cannot be undone!' ),
+			]
+		);
+	} elseif( $gContent->mergeInto( $mergeTargetId ) ) {
+		$targetHash = [ 'content_id' => $mergeTargetId ];
+		header( 'Location: '.FoodComponent::getDisplayUrlFromHash( $targetHash ) );
+		die;
+	}
+	// Falls through to the normal render below with $gContent->mErrors populated
+	// if mergeInto() failed validation (bad/missing target id).
+}
+
 $gBitSmarty->assign( 'gContent',  $gContent );
 $gBitSmarty->assign( 'gXrefInfo', $gContent->mXrefInfo );
 $gBitSmarty->assign( 'errors',    $gContent->mErrors );
