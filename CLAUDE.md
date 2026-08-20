@@ -367,3 +367,39 @@ today, since it's new this session) - `git clone` from desktop's local copy (sam
 `rdmcloud/food -> ../_bw5/food` on each. `server-pull-all.sh` needed no changes - it discovers
 packages dynamically by globbing `_bw5/*/`, not a hardcoded list, so it picked `food` up
 automatically once present.
+
+## Next up (not started): FoodMovement / add_movement — 2026-08-20
+
+Real pantry ledger, scoped early on but never built (see the "FoodAssembly-as-meal-wrapper" and
+"quantity group" sections above — `movement_in` from receipts, `movement_out` via
+`explodeFromAssembly()` when a diary meal is logged or a recipe used; historical diary import
+deliberately does NOT generate movement rows, only forward from a stocktake baseline). Lester's
+framing going in: `add_movement` writes into `FoodComponent`'s existing `REM` xref (the live
+remaining-balance value already registered on the `quantity` group, `xkey`/whichever numeric slot
+holds the SGL/WT/VOL amount — **not** the same-named curation flag, which lives on `xkey_ext` of
+that same row; check both semantics before touching it) *and* creates its own separate
+receipt-specific xref set on the `FoodMovement` content object itself (supplier, price, date,
+etc.) — his exact words: "working into the REM xref on foodcomponent but it's own set of receipt
+xref's".
+
+**Reference pattern to mirror, already checked**: `stock/includes/classes/StockMovement.php`
+(764 lines) — pure `liberty_content` record (`content_type_guid='stockmovement'`), no dedicated
+DB table (same `content_id`-only convention as `FoodComponent`/`FoodAssembly`, see
+[[feedback_content_id_only]]). Direction inferred from a `reference` xref item (`REQN`=outbound,
+`TRANS`/`ORDER`=inbound); status lives in `lc.event_time` (`0`=open, a real timestamp=received);
+component lines live in `liberty_xref` (`x_group='quantity'`, items `SGL`/`PRT`/`SHT`/`VOL`); the
+`reference` xref itself (`x_group='reference'`) carries from/ref/date/contact data. UI-side:
+`stock/add_movement_component.php` (85 lines) is the "quick add a component line to an existing
+movement" flow — not yet read in detail, check before assuming shape; there is no
+`stock/add_movement.php` (movement-creation itself apparently happens some other way in
+Stock — find and check that entry point too before designing Food's equivalent, don't assume one
+needs building from scratch).
+
+**Not yet designed, needs working through before writing code** (don't just copy Stock 1:1 -
+Food's REM-balance-write requirement is genuinely different from Stock's pure-ledger model):
+exact shape of the "receipt" xref group/items on `FoodMovement` (supplier — reuse the same
+`SUP`-style Contact-xref pattern already built on `FoodComponent`? price? date already covered by
+`lc.event_time`/`created`?); whether `REM` gets incremented/decremented directly by
+`add_movement`'s own code or via some shared helper Stock already has; whether direction
+(`movement_in`/`movement_out`) uses the same `reference`-xref-classifier trick as Stock's
+`REQN`/`TRANS`/`ORDER`, and if so what Food's own item codes should be.
