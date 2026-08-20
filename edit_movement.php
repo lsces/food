@@ -1,0 +1,145 @@
+<?php
+/**
+ * Create or edit a FoodMovement (pantry receipt) — shop/date/note header, plus an
+ * inline "add a component" form and the current line list, all on one page.
+ * Deliberately narrower than stock/edit_movement.php: no CSV import, no assembly/
+ * BOM kit-count rescaling — Food has no BOM-shaped movements (see food/CLAUDE.md's
+ * FoodMovement design notes).
+ *
+ * The add-component handling used to be its own page (add_movement_component.php,
+ * mirroring add_assembly_item.php's separate-page pattern) — folded in here
+ * 2026-08-20 because tidying a real receipt with several items meant a full page
+ * navigation per line, which Lester flagged as too slow. Landing back on this same
+ * page (rather than a separate view) after each add is the actual fix; the
+ * component-picker JS itself is unchanged. Still delegates the actual insert to
+ * FoodMovement::addComponentLine() (not a generic add_xref.php form) so the
+ * referenced FoodComponent's REM balance stays in sync — see that method's
+ * docblock for why.
+ *
+ * @package food
+ */
+namespace Bitweaver\Food;
+
+use Bitweaver\KernelTools;
+use Bitweaver\HttpStatusCodes;
+
+require_once '../kernel/includes/setup_inc.php';
+
+global $gBitSystem, $gBitSmarty, $gBitDb;
+
+$gBitSystem->verifyPackage( 'food' );
+
+$gContent = new FoodMovement( !empty( $_REQUEST['content_id'] ) ? (int)$_REQUEST['content_id'] : null );
+$gContent->load();
+
+if( !empty( $_REQUEST['content_id'] ) && !$gContent->isValid() ) {
+	$gBitSystem->fatalError( KernelTools::tra( 'No movement exists with the given ID' ), null, null, HttpStatusCodes::HTTP_NOT_FOUND );
+}
+
+if( $gContent->isValid() ) {
+	$gContent->verifyUpdatePermission();
+} else {
+	$gBitSystem->verifyPermission( 'p_food_create' );
+}
+
+// Helper: parse dd/mm/yy or dd/mm/yyyy -> Unix timestamp, or null. Mirrors
+// stock/edit_movement.php's own parseMovementDate().
+function foodParseMovementDate( string $s ): ?int {
+	$parts = explode( '/', trim( $s ) );
+	if( count( $parts ) !== 3 ) return null;
+	$year = (int)$parts[2] < 100 ? 2000 + (int)$parts[2] : (int)$parts[2];
+	$ts = mktime( 0, 0, 0, (int)$parts[1], (int)$parts[0], $year );
+	return $ts ?: null;
+}
+
+$addErrors = [];
+
+if( !empty( $_REQUEST['save'] ) ) {
+	$title = trim( $_REQUEST['title'] ?? '' );
+	if( $title === '' ) {
+		$title = KernelTools::tra( 'Receipt' ).' — '.date( 'Y-m-d' );
+	}
+	$pHash = [ 'title' => $title ];
+	if( $gContent->store( $pHash ) ) {
+		$shopId  = !empty( $_REQUEST['shop_content_id'] ) && is_numeric( $_REQUEST['shop_content_id'] ) ? (int)$_REQUEST['shop_content_id'] : null;
+		$refKey  = trim( $_REQUEST['ref_key'] ?? '' );
+		$note    = trim( $_REQUEST['note'] ?? '' );
+		$purDate = !empty( $_REQUEST['purchase_date'] ) ? foodParseMovementDate( $_REQUEST['purchase_date'] ) : null;
+		$gContent->setReceiptReference( $shopId, $refKey, $purDate, $note );
+		header( 'Location: '.FOOD_PKG_URL.'edit_movement.php?content_id='.$gContent->mContentId );
+		die;
+	}
+
+} elseif( !empty( $_REQUEST['fAddComponent'] ) && $gContent->isValid() ) {
+	$title = trim( $_REQUEST['component_title'] ?? '' );
+	$qty   = trim( $_REQUEST['quantity'] ?? '' );
+
+	if( $title === '' ) {
+		$addErrors[] = KernelTools::tra( 'Component title is required.' );
+	} elseif( !is_numeric( $qty ) || (float)$qty <= 0 ) {
+		$addErrors[] = KernelTools::tra( 'Quantity must be a positive number.' );
+	} else {
+		$compId = (int)$gBitDb->getOne(
+			"SELECT lc.`content_id` FROM `".BIT_DB_PREFIX."liberty_content` lc
+			 WHERE lc.`content_type_guid` = 'foodcomponent' AND lc.`title` = ?",
+			[ $title ]
+		);
+
+		if( !$compId ) {
+			// No path back to the movement after creating the component here — same
+			// accepted limitation as add_assembly_item.php's identical redirect.
+			header( 'Location: '.FOOD_PKG_URL.'edit_component.php?title='.urlencode( $title ) );
+			die;
+		}
+
+		if( $gContent->addComponentLine( $compId, (float)$qty ) ) {
+			header( 'Location: '.FOOD_PKG_URL.'edit_movement.php?content_id='.$gContent->mContentId.'#add-component' );
+			die;
+		}
+		$addErrors = !empty( $gContent->mErrors ) ? array_values( $gContent->mErrors ) : [ KernelTools::tra( 'Failed to add component.' ) ];
+	}
+
+} elseif( !empty( $_REQUEST['remove_xref_id'] ) && $gContent->isValid() ) {
+	$gContent->removeComponentLine( (int)$_REQUEST['remove_xref_id'] );
+	header( 'Location: '.FOOD_PKG_URL.'edit_movement.php?content_id='.$gContent->mContentId.'#add-component' );
+	die;
+
+} elseif( !empty( $_REQUEST['delete'] ) ) {
+	$gBitSystem->verifyPermission( 'p_food_expunge' );
+	if( !empty( $_REQUEST['cancel'] ) ) {
+		header( 'Location: '.FOOD_PKG_URL.'edit_movement.php?content_id='.$gContent->mContentId );
+		die;
+	} elseif( empty( $_REQUEST['confirm'] ) ) {
+		$gBitSystem->confirmDialog(
+			[ 'delete' => true, 'content_id' => $gContent->mContentId ],
+			[
+				'confirm_item' => $gContent->getTitle(),
+				'warning'      => KernelTools::tra( 'Are you sure you want to delete this receipt? This reverses the stock it added.' ).' ('.$gContent->getTitle().')',
+				'error'        => KernelTools::tra( 'This cannot be undone!' ),
+			]
+		);
+	} else {
+		$gContent->expunge();
+		header( 'Location: '.FOOD_PKG_URL.'list_movements.php' );
+		die;
+	}
+}
+
+$shops = $gBitDb->getAll(
+	"SELECT lc.`content_id`, lc.`title` FROM `".BIT_DB_PREFIX."liberty_content` lc
+		JOIN `".BIT_DB_PREFIX."liberty_xref` lx ON ( lx.`content_id` = lc.`content_id` AND lx.`item` = 'B04' )
+	 WHERE lc.`content_type_guid` = 'contactbusiness'
+	 ORDER BY lc.`title`"
+);
+
+$purchaseDateVal = !empty( $gContent->mInfo['ref_start_date'] )
+	? date( 'd/m/Y', strtotime( $gContent->mInfo['ref_start_date'] ) ) : '';
+
+$gBitSmarty->assign( 'gContent',        $gContent );
+$gBitSmarty->assign( 'shops',           $shops );
+$gBitSmarty->assign( 'lines',           $gContent->getLines() );
+$gBitSmarty->assign( 'purchaseDateVal', $purchaseDateVal );
+$gBitSmarty->assign( 'errors',          $gContent->mErrors );
+$gBitSmarty->assign( 'addErrors',       $addErrors );
+
+$gBitSystem->display( 'bitpackage:food/edit_movement.tpl', KernelTools::tra( 'Edit Receipt' ), [ 'display_mode' => 'edit' ] );

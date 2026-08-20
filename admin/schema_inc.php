@@ -33,6 +33,7 @@ $gBitInstaller->registerUserPermissions( FOOD_PKG_NAME, [
 $gBitInstaller->registerContentObjects( FOOD_PKG_NAME, [
 	'FoodComponent' => FOOD_PKG_CLASS_PATH.'FoodComponent.php',
 	'FoodAssembly'  => FOOD_PKG_CLASS_PATH.'FoodAssembly.php',
+	'FoodMovement'  => FOOD_PKG_CLASS_PATH.'FoodMovement.php',
 ] );
 
 // ### Requirements
@@ -208,5 +209,21 @@ $xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,
 $xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('DINNER',   'foodassembly','type','Dinner',         1,3,'','text',NULL)";
 $xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('MSNK',     'foodassembly','type','Morning snack',  1,3,'','text',NULL)";
 $xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('ESNK',     'foodassembly','type','Evening snack',  1,3,'','text',NULL)";
+
+// ── foodmovement (sort_order=0: reference; sort_order=1: quantity) ─────────────────
+// The pantry receipt — see includes/classes/FoodMovement.php's class docblock.
+// Deliberately narrower than Stock's stockmovement schema: one reference item
+// (RECEIPT, inbound only — Food's outbound side is FoodAssembly's own diary
+// logging via a future explodeFromAssembly(), not a manual movement, see
+// food/CLAUDE.md's FoodMovement design notes), and quantity items reuse
+// foodcomponent's own SGL/WT/VOL type codes directly rather than Stock's
+// SGL/PRT/SHT/VOL set (no PRT/SHT concept in Food).
+$xrefTypes[] = "INSERT INTO `{$X}liberty_xref_group` (`x_group`,`content_type_guid`,`title`,`sort_order`,`role_id`,`type_href`,`template`) VALUES ('reference','foodmovement','Receipt',0,3,'','')";
+$xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('RECEIPT','foodmovement','reference','Shop',1,3,'../contact/view.php?content_id=','text',NULL)";
+
+$xrefTypes[] = "INSERT INTO `{$X}liberty_xref_group` (`x_group`,`content_type_guid`,`title`,`sort_order`,`role_id`,`type_href`,`template`) VALUES ('quantity','foodmovement','Items',1,3,'','')";
+$xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('SGL','foodmovement','quantity','Single unit (count)',1,3,'','text',NULL)";
+$xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('WT','foodmovement','quantity','Weight (g)',1,3,'','text',NULL)";
+$xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('VOL','foodmovement','quantity','Volume (ml)',1,3,'','text',NULL)";
 
 $gBitInstaller->registerSchemaDefault( FOOD_PKG_NAME, array_merge( $xrefTypes, $xrefItems ) );

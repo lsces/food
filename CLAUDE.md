@@ -1,13 +1,17 @@
 # Food Package — Developer Notes
 
-## Status (2026-08-16): FoodComponent + FoodAssembly built, food_info + food_intake importers built, FoodMovement not started
+## Status (2026-08-20): FoodComponent + FoodAssembly + FoodMovement (receipts only) built
 
 `admin/schema_inc.php` (permissions, `registerContentObjects`, `external`/`nutrition`/`quantity`/
-`type` xref groups), `includes/classes/FoodComponent.php` + `FoodAssembly.php`, and
+`type`/`supplier` xref groups on `foodcomponent`/`foodassembly`, plus `reference`/`quantity` on
+`foodmovement`), `includes/classes/FoodComponent.php`/`FoodAssembly.php`/`FoodMovement.php`, and
 `import/ImportFoodInfo.php`/`ImportFoodIntake.php` + `load_food_info.php`/`load_food_intake.php` +
-`templates/import_results.tpl` written. Installed and running on rdmcloud — `food_info` importer
-run successfully (1163 created); schema pushed by hand into the live DB while pre-production (see
-"Dev-stage schema workflow" below), not yet through a proper install/upgrade cycle.
+`templates/import_results.tpl` written. Installed and running on rdmcloud — real CSV imports run
+2026-08-19 (1163 components, 1951 diary entries), live on desktop+srv9+srv10. `FoodMovement`
+(pantry receipts, see its own section below) built and verified 2026-08-20 but **desktop-only so
+far** — its schema is still pre-production and hasn't been pushed to srv9/srv10 yet. Schema is
+still hand-pushed via isql into the live DB (see "Dev-stage schema workflow" below), not yet
+through a proper install/upgrade cycle.
 
 ## Architecture plan
 
@@ -403,3 +407,104 @@ exact shape of the "receipt" xref group/items on `FoodMovement` (supplier — re
 `add_movement`'s own code or via some shared helper Stock already has; whether direction
 (`movement_in`/`movement_out`) uses the same `reference`-xref-classifier trick as Stock's
 `REQN`/`TRANS`/`ORDER`, and if so what Food's own item codes should be.
+
+## FoodMovement built — receipts only, live on desktop rdmcloud (2026-08-20)
+
+First real slice, scoped down deliberately per Lester: "view and edit movement are the first step
+to be able to actually add TO the pantry" — receipts (`movement_in`) only. Outbound (diary meal →
+`REM` down via a future `explodeFromAssembly()`-equivalent on `FoodAssembly`) is still not built.
+
+**Schema**: two new `foodmovement` xref groups — `reference` (sort_order=0, one item `RECEIPT`,
+`multiple=1` mirroring Stock's REQN/TRANS/ORDER registration convention even though only one row
+is ever used per movement — `xref`→shop Contact content_id, `xkey`=free-text receipt/order
+reference, `start_date`=purchase date, `data`=note) and `quantity` (sort_order=1, items `SGL`/`WT`/
+`VOL`, `multiple=1`, reusing `foodcomponent`'s own type codes directly rather than Stock's
+SGL/PRT/SHT/VOL set — no PRT/SHT concept in Food). Hand-pushed into desktop rdmcloud via isql
+(pre-production workflow, unchanged) — **srv9/srv10 NOT touched**, schema still not stable enough
+to roll out yet.
+
+**`FoodMovement.php`** (`includes/classes/FoodMovement.php`) — mirrors `StockMovement.php`'s shape
+(constructor/load/store/expunge/getList/getDisplayUrl/getEditUrl) but trimmed hard: no CSV import,
+no assembly/BOM kit-count rescaling, no PBLD-to-requisition conversion — none of that applies,
+Food has no BOM-shaped movements. The one thing genuinely new versus Stock: `addComponentLine()`
+and `removeComponentLine()` both call `adjustComponentRem()` in the same transaction as the xref
+write, keeping the referenced `FoodComponent`'s `REM` balance in sync — necessary because Food's
+`REM` is a stored/mutable value, not derived by summing movement history the way Stock's
+`list_stock.php` aggregates (see the `quantity` xref design section above). `removeComponentLine()`
+archives via `stepXref()`/`expunge=1` (same history-preserving convention as every other xref
+removal in this codebase), not a hard delete.
+
+**Pages**: `edit_movement.php`/`view_movement.php` (create/view a receipt — shop via a plain
+`<select>` of `contactbusiness`/B04 contacts, same dropdown convention as `add_supplier.php`;
+reference, purchase date, note), `list_movements.php` (direct trim of `stock/list_movements.php`).
+Also built **`list_pantry.php`** — "what's actually in stock right now", the other half of today's
+scoping conversation: a plain `REM > 0` read (not an aggregate — Food's `REM` doesn't need summing
+the way Stock's `list_stock.php` does), deliberately *not* modelled on `list_stock.php`'s own code
+shape per Lester's explicit call earlier this session ("it's only how the list is built from the
+database that actually matters"). `MIN`/shop-filtered shortage list (the actual "shopping list"
+ask) is still not built — this was explicitly deferred, `list_pantry.php` only answers "what do I
+have", not "what should I buy".
+
+**Add-component flow folded into `edit_movement.php` itself (2026-08-20, same day, after real
+use)** — originally a separate `add_movement_component.php` page (direct copy of
+`add_assembly_item.php`'s typeahead-or-create-new flow), same as `FoodAssembly`'s own pattern.
+Lester hit this immediately trying to tidy a real receipt with several items: a full page
+navigation per line was "taking an age". Retired that page — the add form (same typeahead JS,
+same `FoodComponent` title lookup, same "not found → redirect to `edit_component.php?title=`"
+fallback) now lives inline on `edit_movement.php` itself, posts to itself, and redirects back to
+itself (`#add-component` anchor, input auto-focused) on success — so adding several lines to one
+receipt is now type → Enter → type → Enter, no page changes at all. Still delegates the actual
+insert to `FoodMovement::addComponentLine()`, not a generic xref add, so `REM` stays in sync — that
+part didn't change, only where the form lives. This is a scoped, receipt-specific fix, not the
+cross-cutting modal/popup redesign — see [[project_modal_quick_add_ux]], still deferred as its own
+larger piece of work across Stock/Food/Contact together.
+
+**"Only REVIEW-flagged components have a `REM` xref row at all" — confirmed expected, not a bug**
+(Lester noticed this while testing the above). `ImportFoodInfo.php`'s `REM` write
+(`foodImportFoodInfoRow()`, `$storeXref('REM', null, 'REVIEW')`) only ever fires for components the
+importer flagged for curation review — a clean, no-issue import never touches `REM` at all, since
+`REM` had no real meaning before `FoodMovement` existed to give it one. So of the ~1163 imported
+components, only the ~334 originally flagged (see `list_review.php`'s own numbers) start with any
+`REM` row; the rest have none until their first receipt or diary deduction. `FoodMovement::
+adjustComponentRem()` already handles this correctly (creates the row fresh at the first delta,
+verified in this session's Bananas test, which had zero `REM` rows going in) — nothing to fix here,
+just confirming the data shape matches the design.
+
+**Verified end-to-end on desktop rdmcloud** via a faked session: created a receipt (shop/ref/date/
+note all round-tripped correctly on `view_movement.php`), added a real component (Bananas) with no
+prior `REM` row — `REM` created fresh at the added quantity, confirmed via isql; removed the line —
+`REM` correctly dropped back down, the line's own `liberty_xref` row archived (`end_date` stamped,
+not hard-deleted); `list_pantry.php` correctly excluded the component again once `REM` was back to
+0. No bugs found in this pass. Test receipt and its side-effects (the fresh `REM` row, the
+`users_cnxn` faked-session cookie) all cleaned up afterward — nothing left in Lester's real data.
+
+**Real gotcha hit while testing, corrected in memory, not a code bug**: the "fake a session"
+recipe recorded in the 2026-08-16 session-log entry above (`session_name` = `bit-user-rdmcloud`)
+was stale — rdmcloud's actual live session cookie is `bit-user-rainbowdigitalmediahomecloud`
+(site_title-derived, matches `reference_desktop_site_architecture` memory). Always read
+`config/kernel/auth_config.php` directly rather than trusting a remembered cookie name — it's
+exactly the kind of value that regenerates differently after a config reset (see the 2026-08-20
+`rdmcloud` 755/`auth_config.php`-decay entry in the top-level CLAUDE.md).
+
+## Shopping list design confirmed (2026-08-20, still ahead of FoodMovement build)
+
+Worked through with Lester before any code — `MIN` (new `quantity`-group item, same unit as `REM`,
+`template='value'` like `PCK`) is the shortage threshold: shopping list = components where `REM <=
+MIN`. **`MIN` presence is opt-in** (no row = never appears on the list, not "defaults to 0") — this
+is what gives "only regularly-used staples show up" for free, same convention as `5AD`. Confirmed
+against Lester's own milk example: he doesn't wait for empty, the real trigger is starting the last
+bottle — i.e. `MIN=1`, buy the moment `REM` drops to 1. Maps cleanly, no special-casing needed.
+
+**Shop-filtering does NOT need a schema change.** Lester's milk isn't tied to one shop — he buys it
+from Lidl or Waitrose depending on which has run out / voucher timing — which at first looked like
+it might break a strict "one shop per item" grouping. It doesn't: `SUP` was already built
+`multiple=1` for exactly this reason (a component can have several real suppliers, see the
+`project_stock_schema` precedent this was copied from). "What do I need at shop X" is just `REM <=
+MIN` intersected with "`SUP` includes shop X's contact content_id" — milk naturally appears under
+both Lidl and Waitrose without any extra modelling.
+
+**`list_stock.php` is not being adopted as a template to follow structurally** — Lester's own
+framing: "it's only how the list is built from the database that actually matters," not which
+existing file's shape gets reused. The reusable *idea* from Stock (group shortages by supplier) still
+applies, but Food's version should be designed against its own query (REM/MIN/SUP as above), not
+built by mechanically adapting `list_stock.php`'s code.
