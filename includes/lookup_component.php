@@ -29,10 +29,11 @@ if( strlen( $q ) < 2 ) {
 	exit;
 }
 
-// Supplier joined in so same-titled components (e.g. the same generic sandwich
-// name imported separately from several shops, once the supplier itself moved
-// out of the title into its own xref — see project_food_package_scoping memory)
-// are actually distinguishable in the dropdown, not just duplicate-looking rows.
+// Supplier: a correlated subquery, not a JOIN — SUP is registered multiple=1
+// (a component can legitimately have several real suppliers, e.g. bought from
+// both Lidl and Waitrose over time), so a plain JOIN fanned out one dropdown row
+// per supplier instead of one per component. FIRST 1 just picks a representative
+// supplier to disambiguate the title with; not claiming it's the *only* one.
 //
 // default_qty: the component's own declared WT/VOL value (its quantity group,
 // e.g. "this pack = 52g"), where actually set — not every component has one
@@ -40,16 +41,17 @@ if( strlen( $q ) < 2 ) {
 // yet", nothing to default from). Lets add_assembly_item.tpl prefill Quantity
 // on selection rather than making every add start from a blank field.
 $rows = $gBitDb->getArray(
-	"SELECT FIRST 30 lc.content_id, lc.title, sup.title AS supplier,
+	"SELECT FIRST 30 lc.content_id, lc.title,
+			( SELECT FIRST 1 sup.title FROM liberty_xref x
+			  JOIN liberty_content sup ON ( sup.content_id = x.xref )
+			  WHERE x.content_id = lc.content_id AND x.item = 'SUP' ) AS supplier,
 			( SELECT FIRST 1 u.xkey FROM liberty_xref u
 			  WHERE u.content_id = lc.content_id AND u.item IN ('WT','VOL')
 			    AND u.xkey IS NOT NULL AND u.xkey <> ''
 			  ORDER BY CASE u.item WHEN 'VOL' THEN 0 ELSE 1 END ) AS default_qty
 	 FROM liberty_content lc
-	 LEFT JOIN liberty_xref x ON ( x.content_id = lc.content_id AND x.item = 'SUP' )
-	 LEFT JOIN liberty_content sup ON ( sup.content_id = x.xref )
 	 WHERE lc.content_type_guid=? AND LOWER(lc.title) LIKE ?
-	 ORDER BY lc.title, sup.title",
+	 ORDER BY lc.title",
 	[ 'foodcomponent', '%'.strtolower( $q ).'%' ]
 );
 
