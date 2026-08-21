@@ -9,6 +9,7 @@
 
 		{form id="addComponentForm" ipackage="food" ifile="add_assembly_item.php"}
 			<input type="hidden" name="content_id" value="{$gContent->mContentId}" />
+			<input type="hidden" name="component_id" id="component_id" value="{$smarty.request.component_id|default:''|escape}" />
 
 			<div class="form-group">
 				{formlabel label="Component" for="component_title" mandatory="y"}
@@ -21,7 +22,7 @@
 						<ul id="comp_dropdown" class="dropdown-menu"
 							style="display:none;position:absolute;width:100%;z-index:1000;max-height:220px;overflow-y:auto"></ul>
 					</div>
-					{formhelp note="Type to search existing components, or enter a new title to create one."}
+					{formhelp note="Type to search existing components, or enter a new title to create one. Where the same title exists from more than one shop, the supplier shows in brackets — pick the right one rather than retyping the plain title."}
 				{/forminput}
 			</div>
 
@@ -46,8 +47,13 @@
 	var timer;
 	var $input = $('#component_title');
 	var $dd    = $('#comp_dropdown');
+	var $id    = $('#component_id');
 
 	$input.on('input', function() {
+		// Any manual retyping invalidates whatever was previously selected —
+		// otherwise a stale component_id could silently survive a hand-edit and
+		// point at the wrong (same-titled, different-supplier) component.
+		$id.val('');
 		var q = $(this).val();
 		clearTimeout(timer);
 		$dd.hide().empty();
@@ -56,8 +62,9 @@
 			$.getJSON('{$lookupUrl}', {ldelim}q: q{rdelim}, function(data) {
 				if (!data.length) return;
 				$.each(data, function(i, row) {
+					var label = row.supplier ? row.title + ' (' + row.supplier + ')' : row.title;
 					$dd.append($('<li>').append(
-						$('<a>').attr('href','#').data('title', row.title).text(row.title)
+						$('<a>').attr('href','#').data('id', row.content_id).data('label', label).text(label)
 					));
 				});
 				$dd.show();
@@ -67,7 +74,8 @@
 
 	$(document).on('mousedown', '#comp_dropdown a', function(e) {
 		e.preventDefault();
-		$input.val($(this).data('title'));
+		$input.val($(this).data('label'));
+		$id.val($(this).data('id'));
 		$dd.hide().empty();
 	});
 

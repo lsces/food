@@ -34,19 +34,42 @@ if( !empty( $_REQUEST['fCancel'] ) ) {
 }
 
 if( !empty( $_REQUEST['fAddComponent'] ) ) {
-	$title = trim( $_REQUEST['component_title'] ?? '' );
-	$qty   = trim( $_REQUEST['xkey'] ?? '' );
+	$title  = trim( $_REQUEST['component_title'] ?? '' );
+	$compId = (int)( $_REQUEST['component_id'] ?? 0 );
+	$qty    = trim( $_REQUEST['xkey'] ?? '' );
 
 	if( $title === '' ) {
 		$errors[] = KernelTools::tra( 'Component title is required.' );
 	} elseif( !is_numeric( $qty ) || (float)$qty <= 0 ) {
 		$errors[] = KernelTools::tra( 'Quantity must be a positive number.' );
 	} else {
-		$compId = (int)$gBitDb->getOne(
-			"SELECT lc.`content_id` FROM `".BIT_DB_PREFIX."liberty_content` lc
-			 WHERE lc.`content_type_guid` = 'foodcomponent' AND lc.`title` = ?",
-			[ $title ]
-		);
+		if( $compId ) {
+			// Picked from the dropdown, which shows supplier alongside title so
+			// same-titled components from different shops are distinguishable
+			// (see project_food_package_scoping memory — supplier moved out of
+			// the title into its own SUP xref, which made the plain title
+			// exact-match below genuinely ambiguous for several real components).
+			// Still verified here rather than trusted blindly — a tampered or
+			// stale id falls straight through to the exact-title lookup instead.
+			$valid = (bool)$gBitDb->getOne(
+				"SELECT 1 FROM `".BIT_DB_PREFIX."liberty_content` WHERE `content_id` = ? AND `content_type_guid` = 'foodcomponent'",
+				[ $compId ]
+			);
+			if( !$valid ) {
+				$compId = 0;
+			}
+		}
+		if( !$compId ) {
+			// Fallback for a freshly-typed title (no suggestion picked) — only
+			// ambiguous itself if two components happen to share the exact same
+			// title with nothing selected, an edge case the dropdown above is
+			// there specifically to avoid.
+			$compId = (int)$gBitDb->getOne(
+				"SELECT lc.`content_id` FROM `".BIT_DB_PREFIX."liberty_content` lc
+				 WHERE lc.`content_type_guid` = 'foodcomponent' AND lc.`title` = ?",
+				[ $title ]
+			);
+		}
 
 		if( !$compId ) {
 			header( 'Location: '.FOOD_PKG_URL.'edit_component.php?title='.urlencode( $title ) );
