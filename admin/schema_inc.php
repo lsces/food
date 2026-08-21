@@ -102,18 +102,26 @@ $xrefTypes[] = "INSERT INTO `{$X}liberty_xref_group` (`x_group`,`content_type_gu
 // FIBR deliberately promoted alongside PROT (Samsung's own app buries it; Lester rates
 // it more useful day-to-day). SOD kept scalar rather than folded into a mineral blob —
 // also feeds the Health package's blood-pressure tracking.
-$xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('CAL', 'foodcomponent','nutrition','Calories (kcal, per 100g)',     0,3,'','text',NULL)";
-$xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('PROT','foodcomponent','nutrition','Protein (mg, per 100g)',       0,3,'','text',NULL)";
-$xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('CARB','foodcomponent','nutrition','Carbohydrate (mg, per 100g)',  0,3,'','text',NULL)";
-$xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('FIBR','foodcomponent','nutrition','Fibre (mg, per 100g)',         0,3,'','text',NULL)";
-$xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('SUGR','foodcomponent','nutrition','Sugar (mg, per 100g)',         0,3,'','text',NULL)";
+//
+// sort_order (added 2026-08-21, previously left at the column's default 0 for every
+// item here — i.e. never actually finished) matches the layout of a UK nutrition
+// label, the shape of the tables Lester is hand-copying figures from: Calories, Fat
+// (total/saturated), Carbohydrate, Sugar, Fibre, Protein, Salt. Only takes effect once
+// LibertyXrefType::loadContent()'s xref-row query orders by it — see the liberty-level
+// fix in the same commit; before that fix this column existed but every consumer's
+// display order fell back to plain alphabetical-by-item-code regardless of this value.
+$xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`sort_order`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('CAL', 'foodcomponent','nutrition','Calories (kcal, per 100g)',     0,1,3,'','text',NULL)";
+$xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`sort_order`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('CARB','foodcomponent','nutrition','Carbohydrate (mg, per 100g)',  0,3,3,'','text',NULL)";
+$xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`sort_order`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('SUGR','foodcomponent','nutrition','Sugar (mg, per 100g)',         0,4,3,'','text',NULL)";
+$xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`sort_order`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('FIBR','foodcomponent','nutrition','Fibre (mg, per 100g)',         0,5,3,'','text',NULL)";
+$xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`sort_order`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('PROT','foodcomponent','nutrition','Protein (mg, per 100g)',       0,6,3,'','text',NULL)";
 // SOD uses its own 'sod' edit template (food/templates/xref/foodcomponent/edit_sod_item.tpl)
 // — accepts either salt (g, UK label convention) or sodium (mg) directly, converting salt
 // to sodium at save time (see liberty/edit_xref.php's sod_salt/sod_sodium handling). No
 // dedicated view template needed — falls back to the generic text view automatically
 // (getXrefRecordTemplate()'s hardcoded final fallback), since display is just the stored
 // sodium mg value, same as every other scalar nutrition item.
-$xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('SOD', 'foodcomponent','nutrition','Sodium (mg, per 100g)',        0,3,'','sod', NULL)";
+$xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`sort_order`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('SOD', 'foodcomponent','nutrition','Sodium (mg, per 100g)',        0,7,3,'','sod', NULL)";
 
 // Compound nutrition items — long-tail fields nobody browses individually, one row
 // each, JSON payload in liberty_xref.data. 'json-list' is a generic liberty item
@@ -129,9 +137,13 @@ $xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,
 // for (2026-08-17: found live on a component with only 2 of FAT's 6 possible keys) —
 // without the full list, there's no way to add a currently-missing field via the edit
 // form, only edit ones that already happen to be present.
-$xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('FAT','foodcomponent','nutrition','Fat breakdown (mg, per 100g)',    0,3,'','json-list','[\"total_mg\",\"saturated_mg\",\"mono_mg\",\"poly_mg\",\"trans_mg\",\"cholesterol_mg\"]')";
-$xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('VIT','foodcomponent','nutrition','Vitamins (mixed units, per 100g)',0,3,'','json-list','[\"vitamin_a_mcg\",\"vitamin_c_mg\",\"vitamin_d_mcg\"]')";
-$xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('MIN','foodcomponent','nutrition','Minerals (mg, per 100g)',        0,3,'','json-list','[\"potassium_mg\",\"calcium_mg\",\"iron_mg\"]')";
+// FAT sits at sort_order=2 — right after CAL, matching the label layout's "Fat (of
+// which saturates)" line — even though this one row also carries mono/poly/trans/
+// cholesterol that don't appear on a standard label; those just ride along on the
+// same row/sort position.
+$xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`sort_order`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('FAT','foodcomponent','nutrition','Fat breakdown (mg, per 100g)',    0,2,3,'','json-list','[\"total_mg\",\"saturated_mg\",\"mono_mg\",\"poly_mg\",\"trans_mg\",\"cholesterol_mg\"]')";
+$xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`sort_order`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('VIT','foodcomponent','nutrition','Vitamins (mixed units, per 100g)',0,8,3,'','json-list','[\"vitamin_a_mcg\",\"vitamin_c_mg\",\"vitamin_d_mcg\"]')";
+$xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`sort_order`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('MIN','foodcomponent','nutrition','Minerals (mg, per 100g)',        0,9,3,'','json-list','[\"potassium_mg\",\"calcium_mg\",\"iron_mg\"]')";
 
 // 5AD — five-a-day adjustment factor (revised 2026-08-18, was a plain yes/no marker).
 // Row exists = counts toward five-a-day at all, no row = doesn't (unchanged). But the
@@ -146,7 +158,7 @@ $xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,
 // caps juice/smoothies and beans/pulses at 1 portion/day regardless of quantity eaten —
 // a per-category daily cap, not a per-gram adjustment, so this factor alone can't
 // express it; not addressed here.
-$xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('5AD', 'foodcomponent','nutrition','Five-a-day adjustment (1=80g)', 0,3,'','text',NULL)";
+$xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`sort_order`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('5AD', 'foodcomponent','nutrition','Five-a-day adjustment (1=80g)', 0,10,3,'','text',NULL)";
 
 // ── foodcomponent-specific group (sort_order=1: quantity, moved ahead of nutrition
 // 2026-08-17) — pantry/movement tracking,

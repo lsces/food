@@ -1,12 +1,17 @@
 <?php
 /**
- * Edit every scalar nutrition xref item (CAL/PROT/CARB/FIBR/SUGR/SOD/5AD) on one
- * FoodComponent in a single form/submit. The plain scalar items never had the
- * "edit several related values in one form" convenience FAT/VIT/MIN already get
- * from their own json-list template (see admin/schema_inc.php's nutrition group
- * comments) — tidying several fields on a real receipt meant a full
- * edit_xref.php round trip per field. Linked from the new "Edit all" icon on
- * view_nutrition_group.tpl, next to the normal "Add record" link.
+ * Edit every scalar nutrition xref item (CAL/CARB/SUGR/FIBR/PROT/SOD/5AD) plus
+ * FAT's total_mg/saturated_mg sub-fields on one FoodComponent in a single
+ * form/submit, ordered to match a UK nutrition label (Calories, Fat total/
+ * saturated, Carbohydrate, Sugar, Fibre, Protein, Salt). The plain scalar
+ * items never had the "edit several related values in one form" convenience
+ * FAT/VIT/MIN already get from their own json-list template (see
+ * admin/schema_inc.php's nutrition group comments) — tidying several fields
+ * on a real receipt meant a full edit_xref.php round trip per field. FAT's
+ * other sub-fields (mono_mg/poly_mg/trans_mg/cholesterol_mg) aren't exposed
+ * here — still edited via FAT's own row on the Nutrition tab. Linked from the
+ * new "Edit all" icon on view_nutrition_group.tpl, next to the normal
+ * "Add record" link.
  *
  * Built 2026-08-20 as a scoped, non-modal fix — flagged as "the best example of
  * the problem" that the eventual generic edit-popup redesign (see
@@ -42,25 +47,41 @@ if( !$gContent->isValid() ) {
 }
 $gContent->verifyUpdatePermission();
 
-// The scalar items this page edits directly. FAT/VIT/MIN are deliberately left
-// out — they already have a working combined edit via their own json-list
-// template, this page isn't trying to replace that.
+// Ordered to match the UK nutrition-label layout Lester copies figures from:
+// Calories, Fat (total/saturated), Carbohydrate, Sugar, Fibre, Protein, Salt.
+// 'kind' drives which input(s) the template renders — 'scalar' is a plain
+// text/xkey field (the original behaviour for CAL/CARB/SUGR/FIBR/PROT/5AD),
+// 'fat' and 'salt' are the two special multi-input cases below. VIT/MIN stay
+// out entirely — they already have a working combined edit via their own
+// json-list template, this page isn't trying to replace that.
 $scalarFields = [
-	'CAL'  => [ 'label' => 'Calories',     'suffix' => 'kcal' ],
-	'PROT' => [ 'label' => 'Protein',      'suffix' => 'mg' ],
-	'CARB' => [ 'label' => 'Carbohydrate', 'suffix' => 'mg' ],
-	'FIBR' => [ 'label' => 'Fibre',        'suffix' => 'mg' ],
-	'SUGR' => [ 'label' => 'Sugar',        'suffix' => 'mg' ],
-	'5AD'  => [ 'label' => 'Five-a-day (adjustment factor, true_portion_g/80)', 'suffix' => '' ],
+	'CAL'  => [ 'kind' => 'scalar', 'label' => 'Calories',     'suffix' => 'kcal' ],
+	'FAT'  => [ 'kind' => 'fat' ],
+	'CARB' => [ 'kind' => 'scalar', 'label' => 'Carbohydrate', 'suffix' => 'mg' ],
+	'SUGR' => [ 'kind' => 'scalar', 'label' => 'Sugar',        'suffix' => 'mg' ],
+	'FIBR' => [ 'kind' => 'scalar', 'label' => 'Fibre',        'suffix' => 'mg' ],
+	'PROT' => [ 'kind' => 'scalar', 'label' => 'Protein',      'suffix' => 'mg' ],
+	'SOD'  => [ 'kind' => 'salt' ],
+	'5AD'  => [ 'kind' => 'scalar', 'label' => 'Five-a-day (adjustment factor, true_portion_g/80)', 'suffix' => '' ],
 ];
 
 $existing = [];
 foreach( $gBitDb->getAll(
-	"SELECT `item`, `xref_id`, `xkey` FROM `".BIT_DB_PREFIX."liberty_xref`
-	 WHERE `content_id` = ? AND `item` IN ('CAL','PROT','CARB','FIBR','SUGR','SOD','5AD')",
+	"SELECT `item`, `xref_id`, `xkey`, `data` FROM `".BIT_DB_PREFIX."liberty_xref`
+	 WHERE `content_id` = ? AND `item` IN ('CAL','FAT','CARB','SUGR','FIBR','PROT','SOD','5AD')",
 	[ $gContent->mContentId ]
 ) as $row ) {
 	$existing[$row['item']] = $row;
+}
+
+// Pre-fill the two FAT sub-fields this page exposes from whatever's already
+// stored — the blob may also hold mono_mg/poly_mg/trans_mg/cholesterol_mg,
+// untouched by this page (see the save-side merge below).
+$existingFat = [ 'total_mg' => '', 'saturated_mg' => '' ];
+if( !empty( $existing['FAT']['data'] ) ) {
+	$fatData = json_decode( $existing['FAT']['data'], true ) ?: [];
+	if( isset( $fatData['total_mg'] ) )     { $existingFat['total_mg']     = $fatData['total_mg']; }
+	if( isset( $fatData['saturated_mg'] ) ) { $existingFat['saturated_mg'] = $fatData['saturated_mg']; }
 }
 
 if( !empty( $_REQUEST['fCancel'] ) ) {
@@ -69,7 +90,10 @@ if( !empty( $_REQUEST['fCancel'] ) ) {
 }
 
 if( !empty( $_REQUEST['fSaveNutrition'] ) ) {
-	foreach( array_keys( $scalarFields ) as $item ) {
+	foreach( $scalarFields as $item => $meta ) {
+		if( $meta['kind'] !== 'scalar' ) {
+			continue;
+		}
 		$val = trim( (string)( $_REQUEST['val_'.$item] ?? '' ) );
 		if( $val === '' || !is_numeric( $val ) ) {
 			// Blank stays blank — this page never creates a 0-value row for a field
@@ -80,6 +104,31 @@ if( !empty( $_REQUEST['fSaveNutrition'] ) ) {
 		$pHash = [ 'content_id' => $gContent->mContentId, 'item' => $item, 'xkey' => $val ];
 		if( isset( $existing[$item] ) ) {
 			$pHash['xref_id'] = $existing[$item]['xref_id'];
+		} else {
+			$pHash['fAddXref'] = 1;
+		}
+		$xref = new LibertyXref();
+		$xref->store( $pHash );
+	}
+
+	// FAT — total_mg/saturated_mg merged into whatever's already stored, rather
+	// than replacing the whole blob (this page doesn't expose mono_mg/poly_mg/
+	// trans_mg/cholesterol_mg — those stay as-is, edited via FAT's own row-level
+	// json-list edit on the Nutrition tab instead). Same raw-mg convention as
+	// every other scalar on this page.
+	$fatTotal = trim( (string)( $_REQUEST['fat_total'] ?? '' ) );
+	$fatSat   = trim( (string)( $_REQUEST['fat_saturated'] ?? '' ) );
+	if( $fatTotal !== '' || $fatSat !== '' ) {
+		$fatData = !empty( $existing['FAT']['data'] ) ? ( json_decode( $existing['FAT']['data'], true ) ?: [] ) : [];
+		if( $fatTotal !== '' && is_numeric( $fatTotal ) ) {
+			$fatData['total_mg'] = $fatTotal + 0;
+		}
+		if( $fatSat !== '' && is_numeric( $fatSat ) ) {
+			$fatData['saturated_mg'] = $fatSat + 0;
+		}
+		$pHash = [ 'content_id' => $gContent->mContentId, 'item' => 'FAT', 'edit' => json_encode( (object)$fatData ) ];
+		if( isset( $existing['FAT'] ) ) {
+			$pHash['xref_id'] = $existing['FAT']['xref_id'];
 		} else {
 			$pHash['fAddXref'] = 1;
 		}
@@ -122,5 +171,6 @@ if( !empty( $_REQUEST['fSaveNutrition'] ) ) {
 $gBitSmarty->assign( 'gContent',      $gContent );
 $gBitSmarty->assign( 'scalarFields',  $scalarFields );
 $gBitSmarty->assign( 'existing',      $existing );
+$gBitSmarty->assign( 'existingFat',   $existingFat );
 
 $gBitSystem->display( 'bitpackage:food/edit_nutrition.tpl', KernelTools::tra( 'Edit Nutrition' ).': '.$gContent->getTitle(), [ 'display_mode' => 'edit' ] );
