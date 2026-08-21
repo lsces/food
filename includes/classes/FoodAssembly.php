@@ -204,6 +204,12 @@ class FoodAssembly extends LibertyContent {
 		$pParamHash['content_type_guid'] = FOODASSEMBLY_CONTENT_TYPE_GUID;
 		if( $this->isValid() ) {
 			$pParamHash['content_id'] = $this->mContentId;
+			// A partial update (e.g. changeEventTime() storing just event_time) has
+			// no reason to also restate the title — fall back to what's already
+			// stored rather than failing validation on an existing, valid record.
+			if( empty( $pParamHash['title'] ) ) {
+				$pParamHash['title'] = $this->getTitle();
+			}
 		}
 		if( empty( $pParamHash['title'] ) ) {
 			$this->mErrors['title'] = 'A title is required.';
@@ -473,6 +479,29 @@ class FoodAssembly extends LibertyContent {
 			$xref->store( $pHash );
 		}
 		return true;
+	}
+
+	/**
+	 * Change this assembly's event_time (the meal's actual eaten time) — validates
+	 * the day-uniqueness constraint against the *new* day (this meal's own type
+	 * mustn't already be taken there by a different assembly), same rule
+	 * changeMealType() enforces for a type change instead of a time change. A no-op
+	 * shift within the same day never conflicts with itself (excluded from the check).
+	 *
+	 * @param  int $pNewEventTime  Unix timestamp (UTC), same convention as every
+	 *                             other event_time value in this class.
+	 */
+	public function changeEventTime( int $pNewEventTime ): bool {
+		$mealType = $this->getMealType();
+		if( $mealType ) {
+			$taken = self::mealTypesTakenOnDay( $pNewEventTime, $this->mContentId );
+			if( in_array( $mealType, $taken, true ) ) {
+				$this->mErrors['event_time'] = self::mealTypeLabel( $mealType ).' already exists for this day.';
+				return false;
+			}
+		}
+		$pHash = [ 'event_time' => $pNewEventTime ];
+		return $this->store( $pHash );
 	}
 
 	public function expunge(): bool {

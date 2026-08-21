@@ -6,9 +6,9 @@
 	<div class="body">
 		{formfeedback error=$errors}
 
-		{if $mealTypes|@count > 1}
-			{form id="editAssemblyForm"}
-				<input type="hidden" name="content_id" value="{$gContent->mContentId}" />
+		{form id="editAssemblyForm"}
+			<input type="hidden" name="content_id" value="{$gContent->mContentId}" />
+			{if $mealTypes|@count > 1}
 				<div class="form-group">
 					{formlabel label="Meal type"}
 					{forminput}
@@ -21,11 +21,19 @@
 						{formhelp note="Only types not already used on this day are offered."}
 					{/forminput}
 				</div>
-				<div class="form-group submit">
-					<input type="submit" class="btn btn-primary" name="save" value="{tr}Save{/tr}" />
-				</div>
-			{/form}
-		{/if}
+			{/if}
+			<div class="form-group">
+				{formlabel label="Time" for="event_time"}
+				{forminput}
+					<input type="time" class="form-control input-small" name="event_time" id="event_time" value="{$timeDisplay|escape}" />
+					<span class="help-inline">{tr}on{/tr} {$dateFixed|escape}</span>
+					{formhelp note="Date isn't editable here — use the copy icon on the View page to put this meal on a different date instead."}
+				{/forminput}
+			</div>
+			<div class="form-group submit">
+				<input type="submit" class="btn btn-primary" name="save" value="{tr}Save{/tr}" />
+			</div>
+		{/form}
 
 		<table class="table table-condensed">
 			<thead>

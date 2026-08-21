@@ -40,6 +40,21 @@ if( !empty( $_REQUEST['save'] ) ) {
 			$errors = $gContent->mErrors;
 		}
 	}
+	// Time only — the date is fixed, not editable here (that's what
+	// copy_assembly.php is for). Plain UTC arithmetic, matching every other
+	// event_time computation in FoodAssembly.php — no display-timezone
+	// conversion, to stay consistent with the day-boundary math elsewhere.
+	$timeStr = trim( $_REQUEST['event_time'] ?? '' );
+	if( !$errors && preg_match( '/^([01]\d|2[0-3]):([0-5]\d)$/', $timeStr, $m ) ) {
+		$currentEventTime = (int)$gContent->getField( 'event_time' );
+		$dayStart = strtotime( gmdate( 'Y-m-d 00:00:00', $currentEventTime ) );
+		$newEventTime = $dayStart + ( (int)$m[1] * 3600 ) + ( (int)$m[2] * 60 );
+		if( $newEventTime !== $currentEventTime ) {
+			if( !$gContent->changeEventTime( $newEventTime ) ) {
+				$errors = $gContent->mErrors;
+			}
+		}
+	}
 	if( !$errors ) {
 		header( 'Location: '.FOOD_PKG_URL.'edit_assembly.php?content_id='.$gContent->mContentId );
 		die;
@@ -48,11 +63,17 @@ if( !empty( $_REQUEST['save'] ) ) {
 
 $mealType = $gContent->getMealType();
 
-$gBitSmarty->assign( 'gContent',   $gContent );
-$gBitSmarty->assign( 'mealType',   $mealType );
-$gBitSmarty->assign( 'mealLabel',  FoodAssembly::mealTypeLabel( $mealType ?? '' ) );
-$gBitSmarty->assign( 'mealTypes',  $gContent->getAvailableMealTypes() );
-$gBitSmarty->assign( 'items',      $gContent->getItems() );
-$gBitSmarty->assign( 'errors',     $errors );
+$eventTime    = (int)$gContent->getField( 'event_time' );
+$dateFixed    = gmdate( 'Y-m-d', $eventTime );
+$timeDisplay  = gmdate( 'H:i', $eventTime );
+
+$gBitSmarty->assign( 'gContent',      $gContent );
+$gBitSmarty->assign( 'mealType',      $mealType );
+$gBitSmarty->assign( 'mealLabel',     FoodAssembly::mealTypeLabel( $mealType ?? '' ) );
+$gBitSmarty->assign( 'mealTypes',     $gContent->getAvailableMealTypes() );
+$gBitSmarty->assign( 'items',         $gContent->getItems() );
+$gBitSmarty->assign( 'dateFixed',     $dateFixed );
+$gBitSmarty->assign( 'timeDisplay',   $timeDisplay );
+$gBitSmarty->assign( 'errors',        $errors );
 
 $gBitSystem->display( 'bitpackage:food/edit_assembly.tpl', KernelTools::tra( 'Edit' ).' '.FoodAssembly::mealTypeLabel( $mealType ?? '' ), [ 'display_mode' => 'edit' ] );

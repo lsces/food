@@ -34,10 +34,16 @@ $gContent->verifyViewPermission();
 $mealType  = $gContent->getMealType();
 $nutrition = $gContent->getItemsWithNutrition();
 
+// Same gmdate('Y-m-d 00:00:00', ...) day-boundary convention FoodAssembly's own
+// mealTypesTakenOnDay()/lookupByDayAndType() use — so this always links to the
+// same "day" view_day.php would already group this meal under.
+$dateStr = gmdate( 'Y-m-d', (int)$gContent->getField( 'event_time' ) );
+
 $gBitSmarty->assign( 'gContent',        $gContent );
 $gBitSmarty->assign( 'mealLabel',       FoodAssembly::mealTypeLabel( $mealType ?? '' ) );
 $gBitSmarty->assign( 'items',           $nutrition['items'] );
 $gBitSmarty->assign( 'nutritionTotal',  $nutrition['total'] );
 $gBitSmarty->assign( 'nutritionFields', FoodComponent::NUTRITION_SUMMARY_FIELDS );
+$gBitSmarty->assign( 'dateStr',         $dateStr );
 
 $gBitSystem->display( 'bitpackage:food/view_assembly.tpl', KernelTools::tra( 'View' ).' '.FoodAssembly::mealTypeLabel( $mealType ?? '' ) );
