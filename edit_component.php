@@ -33,8 +33,13 @@ if( $gContent->isValid() ) {
 }
 
 if( !empty( $_REQUEST['save'] ) ) {
+	// A brand-new component's first save has nothing else filled in yet
+	// (nutrition, WT/VOL, supplier) — land back on this same edit page to keep
+	// going, rather than the read-only view showing an almost-empty component.
+	// Only the first save does this; every save after that behaves as before.
+	$wasNew = !$gContent->isValid();
 	if( $gContent->store( $_REQUEST ) ) {
-		header( 'Location: '.$gContent->getDisplayUrl() );
+		header( 'Location: '.( $wasNew ? $gContent->getEditUrl() : $gContent->getDisplayUrl() ) );
 		die;
 	}
 }
