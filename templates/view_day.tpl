@@ -76,9 +76,13 @@
 						{else}
 							<p>{tr}No ingredients yet.{/tr}</p>
 						{/if}
-						<a href="view_assembly.php?content_id={$slot.content_id}">{tr}View{/tr}</a>
-						&nbsp;|&nbsp;
-						<a href="edit_assembly.php?content_id={$slot.content_id}">{tr}Edit{/tr}</a>
+						<span class="actionicon">
+							<a title="{tr}View{/tr}" href="view_assembly.php?content_id={$slot.content_id}">{biticon ipackage="icons" iname="view-preview" iexplain="View"}</a>
+							<a title="{tr}Edit{/tr}" href="edit_assembly.php?content_id={$slot.content_id}">{biticon ipackage="icons" iname="edit" iexplain="Edit"}</a>
+							{if $canCreate}
+								<a title="{tr}Copy to another date{/tr}" href="copy_assembly.php?content_id={$slot.content_id}">{biticon ipackage="icons" iname="edit-copy" iexplain="Copy to another date"}</a>
+							{/if}
+						</span>
 					{else}
 						<p>{tr}Not logged.{/tr}</p>
 						{if $canCreate}
