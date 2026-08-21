@@ -18,7 +18,7 @@
 				<div class="form-group">
 					{formlabel label="Date" for="date"}
 					{forminput}
-						<input type="date" class="form-control input-small" name="date" id="date" required="required" />
+						<input type="date" class="form-control input-small" name="date" id="date" value="{$dateValue|escape}" required="required" />
 						{formhelp note="Same time of day as this meal, on the date you pick here."}
 					{/forminput}
 				</div>

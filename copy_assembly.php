@@ -72,9 +72,20 @@ if( !empty( $_REQUEST['save'] ) ) {
 	}
 }
 
+// Presets the date field rather than leaving it blank — most of the time only the
+// day itself needs changing (the common case is copying yesterday's Breakfast
+// forward to today), so default to the day after the source meal's own date.
+// Sticky on a failed attempt (e.g. the day-uniqueness error) — re-shows whatever
+// was actually submitted rather than resetting back to the default.
+$dateValue = trim( $_REQUEST['date'] ?? '' );
+if( $dateValue === '' ) {
+	$dateValue = gmdate( 'Y-m-d', strtotime( '+1 day', (int)$source->getField( 'event_time' ) ) );
+}
+
 $gBitSmarty->assign( 'gContent',    $source );
 $gBitSmarty->assign( 'mealLabel',   FoodAssembly::mealTypeLabel( $mealType ?? '' ) );
 $gBitSmarty->assign( 'items',       $sourceItems );
+$gBitSmarty->assign( 'dateValue',   $dateValue );
 $gBitSmarty->assign( 'errors',      $errors );
 
 $gBitSystem->display( 'bitpackage:food/copy_assembly.tpl', KernelTools::tra( 'Copy' ).' '.FoodAssembly::mealTypeLabel( $mealType ?? '' ), [ 'display_mode' => 'edit' ] );
