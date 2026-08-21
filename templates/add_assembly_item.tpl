@@ -48,6 +48,7 @@
 	var $input = $('#component_title');
 	var $dd    = $('#comp_dropdown');
 	var $id    = $('#component_id');
+	var $qty   = $('#xkey');
 
 	$input.on('input', function() {
 		// Any manual retyping invalidates whatever was previously selected —
@@ -64,7 +65,11 @@
 				$.each(data, function(i, row) {
 					var label = row.supplier ? row.title + ' (' + row.supplier + ')' : row.title;
 					$dd.append($('<li>').append(
-						$('<a>').attr('href','#').data('id', row.content_id).data('label', label).text(label)
+						$('<a>').attr('href','#')
+							.data('id', row.content_id)
+							.data('label', label)
+							.data('qty', row.default_qty)
+							.text(label)
 					));
 				});
 				$dd.show();
@@ -76,6 +81,11 @@
 		e.preventDefault();
 		$input.val($(this).data('label'));
 		$id.val($(this).data('id'));
+		// Only prefill an empty Quantity — never overwrite something already typed
+		// (e.g. picking a different supplier's version of an item after already
+		// entering a known real quantity).
+		var defaultQty = $(this).data('qty');
+		if (!$qty.val() && defaultQty) { $qty.val(defaultQty); }
 		$dd.hide().empty();
 	});
 

@@ -40,8 +40,6 @@ if( !empty( $_REQUEST['fAddComponent'] ) ) {
 
 	if( $title === '' ) {
 		$errors[] = KernelTools::tra( 'Component title is required.' );
-	} elseif( !is_numeric( $qty ) || (float)$qty <= 0 ) {
-		$errors[] = KernelTools::tra( 'Quantity must be a positive number.' );
 	} else {
 		if( $compId ) {
 			// Picked from the dropdown, which shows supplier alongside title so
@@ -76,26 +74,47 @@ if( !empty( $_REQUEST['fAddComponent'] ) ) {
 			die;
 		}
 
-		$nextXorder = (int)$gBitDb->getOne(
-			"SELECT COALESCE( MAX(x.`xorder`) + 1, 1 ) FROM `".BIT_DB_PREFIX."liberty_xref` x
-			 WHERE x.`content_id` = ? AND x.`item` = ?",
-			[ $gContent->mContentId, $mealType ]
-		) ?: 1;
-
-		$xrefObj = new LibertyXref();
-		$xrefObj->mContentTypeGuid = 'foodassembly';
-		$pHash = [
-			'content_id' => $gContent->mContentId,
-			'item'       => $mealType,
-			'xorder'     => $nextXorder,
-			'xref'       => $compId,
-			'xkey'       => (string)(int)round( (float)$qty ),
-		];
-		if( $xrefObj->store( $pHash ) ) {
-			header( 'Location: '.FOOD_PKG_URL.'edit_assembly.php?content_id='.$gContent->mContentId );
-			die;
+		// Quantity left blank — fall back to the component's own declared WT/VOL
+		// value (its quantity group's "1 pack = Ng" figure, e.g. a sandwich's real
+		// pack weight) rather than forcing a retype of a number the component
+		// already records. add_assembly_item.tpl's JS does this same lookup
+		// client-side on selection, but the server-side fallback here covers a
+		// submission that reaches this point with xkey still empty regardless.
+		if( $qty === '' ) {
+			// No FIRST/ORDER BY needed — WT/VOL/SGL are registered multiple=-2
+			// (mutually exclusive) on foodcomponent's quantity group, so at most
+			// one of WT/VOL can ever be set on a real component.
+			$qty = (string)$gBitDb->getOne(
+				"SELECT u.`xkey` FROM `".BIT_DB_PREFIX."liberty_xref` u
+				 WHERE u.`content_id` = ? AND u.`item` IN ('WT','VOL') AND u.`xkey` IS NOT NULL AND u.`xkey` <> ''",
+				[ $compId ]
+			);
 		}
-		$errors[] = KernelTools::tra( 'Failed to store ingredient.' );
+
+		if( !is_numeric( $qty ) || (float)$qty <= 0 ) {
+			$errors[] = KernelTools::tra( 'Quantity must be a positive number — this component has no declared weight/volume to default from.' );
+		} else {
+			$nextXorder = (int)$gBitDb->getOne(
+				"SELECT COALESCE( MAX(x.`xorder`) + 1, 1 ) FROM `".BIT_DB_PREFIX."liberty_xref` x
+				 WHERE x.`content_id` = ? AND x.`item` = ?",
+				[ $gContent->mContentId, $mealType ]
+			) ?: 1;
+
+			$xrefObj = new LibertyXref();
+			$xrefObj->mContentTypeGuid = 'foodassembly';
+			$pHash = [
+				'content_id' => $gContent->mContentId,
+				'item'       => $mealType,
+				'xorder'     => $nextXorder,
+				'xref'       => $compId,
+				'xkey'       => (string)(int)round( (float)$qty ),
+			];
+			if( $xrefObj->store( $pHash ) ) {
+				header( 'Location: '.FOOD_PKG_URL.'edit_assembly.php?content_id='.$gContent->mContentId );
+				die;
+			}
+			$errors[] = KernelTools::tra( 'Failed to store ingredient.' );
+		}
 	}
 }
 
