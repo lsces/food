@@ -195,6 +195,24 @@ class FoodAssembly extends LibertyContent {
 	}
 
 	/**
+	 * Overrides LibertyContent's default (which points at a plain 'edit.php' every
+	 * package is assumed to have) — Food has more than one content type
+	 * (FoodComponent/FoodAssembly), same reason FoodComponent overrides this too.
+	 * Real gap this closes: liberty/edit_xref.php falls back to
+	 * $gContent->getEditUrl() on every redirect (Cancel, save success, archive/
+	 * remove via stepXref) — without this override those all 404'd, straight into
+	 * a nonexistent food/edit.php.
+	 *
+	 * @return string  URL to edit_assembly.php for this meal.
+	 */
+	public function getEditUrl( $pContentId = null, $pMixed = null ): string {
+		if( $this->verifyId( $this->mContentId ) ) {
+			return FOOD_PKG_URL.'edit_assembly.php?content_id='.$this->mContentId;
+		}
+		return FOOD_PKG_URL.'edit_assembly.php';
+	}
+
+	/**
 	 * Validate $pParamHash before storing — requires a non-empty title.
 	 *
 	 * @param  array $pParamHash  Data to validate; modified in place.

@@ -51,7 +51,7 @@
 					<td>
 						<span class="actionicon">
 							{smartlink ititle="Edit" ipackage="liberty" ifile="edit_xref.php" biticon="edit" content_id=$gContent->mContentId xref_id=$i.xref_id}
-							{smartlink ititle="Remove" ipackage="liberty" ifile="edit_xref.php" biticon="user-trash" content_id=$gContent->mContentId xref_id=$i.xref_id expunge=1}
+							{smartlink ititle="Remove" ipackage="liberty" ifile="edit_xref.php" biticon="user-trash" content_id=$gContent->mContentId xref_id=$i.xref_id expunge=3}
 						</span>
 					</td>
 				</tr>
