@@ -60,7 +60,6 @@
 		</table>
 
 		<p><a class="btn btn-default" href="add_assembly_item.php?content_id={$gContent->mContentId}">{tr}Add ingredient{/tr}</a></p>
-		<p><a href="view_assembly.php?content_id={$gContent->mContentId}">{tr}Back to meal{/tr}</a></p>
 	</div>
 </div>
 {/strip}

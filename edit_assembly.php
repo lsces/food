@@ -56,7 +56,11 @@ if( !empty( $_REQUEST['save'] ) ) {
 		}
 	}
 	if( !$errors ) {
-		header( 'Location: '.FOOD_PKG_URL.'edit_assembly.php?content_id='.$gContent->mContentId );
+		// Back to the meal, not back to this same edit page — there's nothing left
+		// to do here once meal type/time are saved (ingredient add/edit/remove are
+		// each their own separate page with their own redirect back to here, not
+		// this button).
+		header( 'Location: '.FOOD_PKG_URL.'view_assembly.php?content_id='.$gContent->mContentId );
 		die;
 	}
 }
