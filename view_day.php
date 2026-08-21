@@ -58,6 +58,8 @@ foreach( FoodAssembly::MEAL_TYPE_LABELS as $code => $label ) {
 }
 
 $gBitSmarty->assign( 'dateStr',          gmdate( 'Y-m-d', $dayStart ) );
+$gBitSmarty->assign( 'prevDateStr',      gmdate( 'Y-m-d', strtotime( '-1 day', $dayStart ) ) );
+$gBitSmarty->assign( 'nextDateStr',      gmdate( 'Y-m-d', strtotime( '+1 day', $dayStart ) ) );
 $gBitSmarty->assign( 'slots',            $slots );
 $gBitSmarty->assign( 'nutritionFields',  FoodComponent::NUTRITION_SUMMARY_FIELDS );
 $gBitSmarty->assign( 'dayTotal',         FoodComponent::formatNutrition( $dayRaw ) );

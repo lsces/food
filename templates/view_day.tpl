@@ -7,8 +7,9 @@
 		{formfeedback error=$errors}
 
 		<form method="get" class="form-inline" style="margin-bottom:1em">
-			<input type="date" class="form-control" name="date" value="{$dateStr}" />
-			<input type="submit" class="btn btn-default" value="{tr}Go{/tr}" />
+			<a class="btn btn-default" title="{tr}Previous day{/tr}" href="{$smarty.const.FOOD_PKG_URL}view_day.php?date={$prevDateStr}">{biticon ipackage="icons" iname="go-previous" iexplain="Previous day"}</a>
+			<input type="date" class="form-control" name="date" value="{$dateStr}" onchange="this.form.submit()" />
+			<a class="btn btn-default" title="{tr}Next day{/tr}" href="{$smarty.const.FOOD_PKG_URL}view_day.php?date={$nextDateStr}">{biticon ipackage="icons" iname="go-next" iexplain="Next day"}</a>
 		</form>
 
 		<div class="panel panel-primary">
