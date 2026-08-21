@@ -45,6 +45,7 @@
 <script>
 (function($) {
 	var timer;
+	var seq = 0; // request-generation counter — see reqId below
 	var $input = $('#component_title');
 	var $dd    = $('#comp_dropdown');
 	var $id    = $('#component_id');
@@ -59,8 +60,17 @@
 		clearTimeout(timer);
 		$dd.hide().empty();
 		if (q.length < 2) return;
+		// clearTimeout above only cancels a fetch that hasn't fired yet — an
+		// already-in-flight one from a previous keystroke can still land after
+		// this one and, without this check, get appended on top instead of
+		// replacing it (duplicate-looking rows from two overlapping responses,
+		// not a duplicate in the data — real bug hit 2026-08-21, reproducible
+		// only as a race, never via a direct query no matter the data state).
+		var reqId = ++seq;
 		timer = setTimeout(function() {
 			$.getJSON('{$lookupUrl}', {ldelim}q: q{rdelim}, function(data) {
+				if (reqId !== seq) return; // a newer request has since superseded this one
+				$dd.empty();
 				if (!data.length) return;
 				$.each(data, function(i, row) {
 					var label = row.supplier ? row.title + ' (' + row.supplier + ')' : row.title;
