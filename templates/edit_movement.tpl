@@ -159,7 +159,11 @@
 		if (q.length < 2) return;
 		var reqId = ++seq;
 		timer = setTimeout(function() {
-			$.getJSON('{$smarty.const.FOOD_PKG_URL}includes/lookup_component.php', {ldelim}q: q{rdelim}, function(data) {
+			// Scoped to whichever shop is currently selected on the receipt, if
+			// any — read live at query time so switching the Shop dropdown mid-
+			// receipt re-scopes the very next search without a page reload.
+			var shopId = $('#shop_content_id').val();
+			$.getJSON('{$smarty.const.FOOD_PKG_URL}includes/lookup_component.php', {ldelim}q: q, shop: shopId{rdelim}, function(data) {
 				if (reqId !== seq) return; // a newer request has since superseded this one
 				$dd.empty();
 				if (!data.length) return;

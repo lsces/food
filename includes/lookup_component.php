@@ -29,6 +29,20 @@ if( strlen( $q ) < 2 ) {
 	exit;
 }
 
+// Optional shop filter (added 2026-08-22 for edit_movement.tpl's receipt-scoped
+// search) — Lester's own call to drop the earlier "component base needs tidying
+// first" deferral: he'll tag a component's SUP on the spot via edit_component.php
+// whenever a genuinely new item doesn't show up filtered, rather than waiting for
+// a full tidy pass. Opt-in: no shop selected (0/blank) means unfiltered, same as
+// today for add_assembly_item.tpl, which never passes this param at all.
+$shopId = (int)( $_GET['shop'] ?? 0 );
+$shopSql = '';
+$bindVars = [ 'foodcomponent', '%'.strtolower( $q ).'%' ];
+if( $shopId > 0 ) {
+	$shopSql = " AND EXISTS ( SELECT 1 FROM liberty_xref sf WHERE sf.content_id = lc.content_id AND sf.item = 'SUP' AND sf.xref = ? )";
+	$bindVars[] = $shopId;
+}
+
 // Supplier: a correlated subquery, not a JOIN — SUP is registered multiple=1
 // (a component can legitimately have several real suppliers, e.g. bought from
 // both Lidl and Waitrose over time), so a plain JOIN fanned out one dropdown row
@@ -68,9 +82,9 @@ $rows = $gBitDb->getArray(
 			( SELECT FIRST 1 s.xkey_ext FROM liberty_xref s
 			  WHERE s.content_id = lc.content_id AND s.item = 'SGL' ) AS sgl_note
 	 FROM liberty_content lc
-	 WHERE lc.content_type_guid=? AND LOWER(lc.title) LIKE ?
+	 WHERE lc.content_type_guid=? AND LOWER(lc.title) LIKE ?$shopSql
 	 ORDER BY lc.title",
-	[ 'foodcomponent', '%'.strtolower( $q ).'%' ]
+	$bindVars
 );
 
 header( 'Content-Type: application/json' );
