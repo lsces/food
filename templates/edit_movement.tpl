@@ -67,7 +67,14 @@
 					{foreach $lines as $l}
 					<tr>
 						<td><a href="{$l.component_display_url|escape}">{$l.component_title|escape}</a></td>
-						<td>{$l.quantity|escape}{$l.quantity_unit|escape}</td>
+						<td>
+							{form id="qty-{$l.xref_id}" ipackage="food" ifile="edit_movement.php" class="form-inline" style="display:inline"}
+								<input type="hidden" name="content_id" value="{$gContent->mContentId}" />
+								<input type="hidden" name="update_xref_id" value="{$l.xref_id}" />
+								<input type="text" class="form-control input-sm" name="new_quantity" value="{$l.quantity|escape}" style="width:5em;display:inline-block" />{$l.quantity_unit|escape}
+								<button type="submit" class="btn btn-default btn-xs" title="{tr}Save{/tr}">{biticon iname="filesave" iexplain="Save"}</button>
+							{/form}
+						</td>
 						<td>
 							{smartlink ititle="Remove" ipackage="food" ifile="edit_movement.php" biticon="user-trash" content_id=$gContent->mContentId remove_xref_id=$l.xref_id}
 						</td>

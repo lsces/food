@@ -381,6 +381,49 @@ class FoodMovement extends LibertyContent {
 	}
 
 	/**
+	 * Change an existing line's quantity — e.g. correcting a mis-typed receipt
+	 * value after the fact — without touching which component/mode (SGL/WT/VOL)
+	 * the line is stored under. Reverses the line's old REM contribution and
+	 * applies the new one via the same resolveRemDelta() an SGL-mode line would
+	 * need converting through, so this stays correct whether the line is a direct
+	 * weight/volume or a converted count.
+	 *
+	 * @param  int   $pXrefId
+	 * @param  float $pNewQuantity  Must be positive, in the line's own existing unit.
+	 * @return bool  FALSE if no such line exists, or the quantity isn't positive.
+	 */
+	public function updateComponentLine( int $pXrefId, float $pNewQuantity ): bool {
+		if( $pNewQuantity <= 0 ) {
+			return false;
+		}
+		$row = $this->mDb->getRow(
+			"SELECT `item`, `xref`, `xkey` FROM `".BIT_DB_PREFIX."liberty_xref` WHERE `xref_id` = ? AND `content_id` = ?",
+			[ $pXrefId, $this->mContentId ]
+		);
+		if( !$row ) {
+			return false;
+		}
+		$this->StartTrans();
+		$pHash = [
+			'xref_id'    => $pXrefId,
+			'content_id' => $this->mContentId,
+			'item'       => $row['item'],
+			'xref'       => (int)$row['xref'],
+			'xkey'       => (string)$pNewQuantity,
+		];
+		$ok = $this->storeXref( $pHash );
+		if( $ok ) {
+			$oldDelta = $this->resolveRemDelta( $row['item'], (float)$row['xkey'], (int)$row['xref'] );
+			$newDelta = $this->resolveRemDelta( $row['item'], $pNewQuantity, (int)$row['xref'] );
+			$this->adjustComponentRem( (int)$row['xref'], $newDelta - $oldDelta );
+			$this->CompleteTrans();
+		} else {
+			$this->mDb->RollbackTrans();
+		}
+		return $ok;
+	}
+
+	/**
 	 * Add (or subtract, for a negative delta) $pDelta to a FoodComponent's REM
 	 * xref, in place — the one spot that actually writes to the pantry balance
 	 * from the movement side. Creates a REM row at $pDelta if the component
@@ -420,7 +463,7 @@ class FoodMovement extends LibertyContent {
 	 *
 	 * @return array  Each row: xref_id, item, component_content_id (xref), quantity
 	 *                (xkey), xorder, component_title, component_display_url,
-	 *                quantity_unit ('g'/'ml'/'').
+	 *                quantity_unit ('g'/'ml'/' '.note/' x').
 	 */
 	public function getLines(): array {
 		if( !$this->isValid() ) {
@@ -428,7 +471,9 @@ class FoodMovement extends LibertyContent {
 		}
 		$rows = $this->mDb->getAll(
 			"SELECT x.`xref_id`, x.`item`, x.`xref` AS component_content_id, x.`xkey` AS quantity, x.`xorder`,
-					lc.`title` AS component_title
+					lc.`title` AS component_title,
+					(SELECT FIRST 1 s.`xkey_ext` FROM `".BIT_DB_PREFIX."liberty_xref` s
+					 WHERE s.`content_id` = x.`xref` AND s.`item` = 'SGL') AS sgl_note
 				FROM `".BIT_DB_PREFIX."liberty_xref` x
 				JOIN `".BIT_DB_PREFIX."liberty_content` lc ON ( lc.`content_id` = x.`xref` )
 				WHERE x.`content_id` = ? AND x.`item` IN ('".implode( "','", self::QUANTITY_ITEMS )."')
@@ -436,7 +481,14 @@ class FoodMovement extends LibertyContent {
 			[ $this->mContentId ]
 		);
 		foreach( $rows as &$row ) {
-			$row['quantity_unit'] = match( $row['item'] ) { 'WT' => 'g', 'VOL' => 'ml', 'SGL' => 'x', default => '' };
+			// SGL lines are labelled with the component's own note (e.g. "Ready Meal")
+			// rather than a bare 'x' — same reuse of xkey_ext as list_pantry.php's Note
+			// column and edit_movement.tpl's qty_mode picker (2026-08-22).
+			$row['quantity_unit'] = match( $row['item'] ) {
+				'WT' => 'g', 'VOL' => 'ml',
+				'SGL' => ' '.( $row['sgl_note'] ?: 'x' ),
+				default => '',
+			};
 			$urlHash = [ 'content_id' => $row['component_content_id'] ];
 			$row['component_display_url'] = FoodComponent::getDisplayUrlFromHash( $urlHash );
 		}

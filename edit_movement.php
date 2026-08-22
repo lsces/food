@@ -126,6 +126,17 @@ if( !empty( $_REQUEST['save'] ) ) {
 	header( 'Location: '.FOOD_PKG_URL.'edit_movement.php?content_id='.$gContent->mContentId.'#add-component' );
 	die;
 
+} elseif( !empty( $_REQUEST['update_xref_id'] ) && $gContent->isValid() ) {
+	$newQty = trim( $_REQUEST['new_quantity'] ?? '' );
+	if( !is_numeric( $newQty ) || (float)$newQty <= 0 ) {
+		$addErrors[] = KernelTools::tra( 'Quantity must be a positive number.' );
+	} elseif( $gContent->updateComponentLine( (int)$_REQUEST['update_xref_id'], (float)$newQty ) ) {
+		header( 'Location: '.FOOD_PKG_URL.'edit_movement.php?content_id='.$gContent->mContentId.'#add-component' );
+		die;
+	} else {
+		$addErrors = !empty( $gContent->mErrors ) ? array_values( $gContent->mErrors ) : [ KernelTools::tra( 'Failed to update line.' ) ];
+	}
+
 } elseif( !empty( $_REQUEST['delete'] ) ) {
 	$gBitSystem->verifyPermission( 'p_food_expunge' );
 	if( !empty( $_REQUEST['cancel'] ) ) {
