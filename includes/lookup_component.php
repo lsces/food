@@ -46,6 +46,12 @@ if( strlen( $q ) < 2 ) {
 // weight/volume vs. a converted count) — see FoodMovement::addComponentLine()'s
 // docblock for the two-mode design. Harmless extra fields for add_assembly_item.tpl,
 // which ignores them.
+//
+// sgl_note: SGL's own xkey_ext (e.g. "Ready Meal", "Pack of 8" — see
+// list_pantry.php's own Note column, same field, same reuse of the spare
+// xkey_ext column). Lets edit_movement.tpl label the count-mode option with the
+// component's actual category rather than a generic "count" — has_sgl stays a
+// separate field since the flag can exist with no note yet.
 $rows = $gBitDb->getArray(
 	"SELECT FIRST 30 lc.content_id, lc.title,
 			( SELECT FIRST 1 sup.title FROM liberty_xref x
@@ -58,7 +64,9 @@ $rows = $gBitDb->getArray(
 			( SELECT FIRST 1 t.item FROM liberty_xref t
 			  WHERE t.content_id = lc.content_id AND t.item IN ('WT','VOL') ) AS quantity_item,
 			( SELECT FIRST 1 1 FROM liberty_xref s
-			  WHERE s.content_id = lc.content_id AND s.item = 'SGL' ) AS has_sgl
+			  WHERE s.content_id = lc.content_id AND s.item = 'SGL' ) AS has_sgl,
+			( SELECT FIRST 1 s.xkey_ext FROM liberty_xref s
+			  WHERE s.content_id = lc.content_id AND s.item = 'SGL' ) AS sgl_note
 	 FROM liberty_content lc
 	 WHERE lc.content_type_guid=? AND LOWER(lc.title) LIKE ?
 	 ORDER BY lc.title",

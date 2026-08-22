@@ -88,7 +88,7 @@
 							<input type="text" class="form-control" name="component_title" id="component_title"
 								autocomplete="off" placeholder="{tr}Component…{/tr}" />
 							<ul id="comp_dropdown" class="dropdown-menu"
-								style="display:none;position:absolute;width:260px;z-index:1000;max-height:220px;overflow-y:auto"></ul>
+								style="display:none;position:absolute;width:390px;z-index:1000;max-height:220px;overflow-y:auto"></ul>
 						</div>
 						<div class="form-group">
 							<input type="text" class="form-control" name="quantity" id="quantity" placeholder="{tr}Quantity{/tr}" style="width:6em" />
@@ -122,12 +122,18 @@
 	var $qty     = $('#quantity');
 	var $qtyMode = $('#qty_mode');
 
-	function setQtyModeOptions(quantityItem, hasSgl) {
+	function setQtyModeOptions(quantityItem, hasSgl, sglNote) {
 		var unitLabel = quantityItem === 'VOL' ? 'ml' : (quantityItem === 'WT' ? 'g' : 'g/ml');
 		$qtyMode.empty();
 		$qtyMode.append($('<option>').val('base').text(unitLabel));
 		if (hasSgl) {
-			$qtyMode.append($('<option>').val('sgl').text('x (count)'));
+			// Labelled with the component's own SGL note (e.g. "Ready Meal", "Pack
+			// of 8" — see list_pantry.php's Note column, same xkey_ext field) rather
+			// than a generic "count", so the two-tab workflow (list_components in
+			// one tab, this receipt in the other) doesn't need cross-checking which
+			// category a component was tagged with. Falls back to "Count" if SGL is
+			// flagged but no note has been added yet.
+			$qtyMode.append($('<option>').val('sgl').text(sglNote || 'Count'));
 		}
 	}
 
@@ -139,7 +145,7 @@
 		// so a stale id/unit label can't silently survive a hand-edit and point at
 		// the wrong (same-titled, different-supplier) component.
 		$id.val('');
-		setQtyModeOptions(null, false);
+		setQtyModeOptions(null, false, null);
 		var q = $(this).val();
 		clearTimeout(timer);
 		$dd.hide().empty();
@@ -156,6 +162,7 @@
 						$('<a>').attr('href','#')
 							.data('id', row.content_id).data('label', label)
 							.data('quantity-item', row.quantity_item).data('has-sgl', row.has_sgl)
+							.data('sgl-note', row.sgl_note)
 							.text(label)
 					));
 				});
@@ -168,7 +175,7 @@
 		e.preventDefault();
 		$input.val($(this).data('label'));
 		$id.val($(this).data('id'));
-		setQtyModeOptions($(this).data('quantity-item'), $(this).data('has-sgl'));
+		setQtyModeOptions($(this).data('quantity-item'), $(this).data('has-sgl'), $(this).data('sgl-note'));
 		$dd.hide().empty();
 		$qty.trigger('focus');
 	});
