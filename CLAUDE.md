@@ -218,3 +218,24 @@ calcium/iron are decimal-scale mg values on a real label and should never sensib
 (and may want fractional-mg precision, closer to `VIT`'s problem than `FAT`'s). `VIT` untouched
 throughout — genuinely mixed mcg/mg units per field is a separate, harder problem, not part of
 this ask.
+
+**Real bug found and fixed the same day, via a genuine mis-entered receipt line** (a Tesco pate
+line added as `VOL` instead of `WT`): the movement-line delete button silently didn't work —
+clicking it looked like nothing happened. Root cause was two independent gaps stacked together.
+`FoodMovement::removeComponentLine()` was archiving the line (`stepXref()`/`expunge=1`,
+history-preserving) rather than deleting it — the trash icon's implied action didn't match what
+it actually did. Separately, `getLines()` (the query building `edit_movement.php`'s own line
+list) had no `end_date` filter at all, so even a correctly-archived row kept showing in the list
+regardless — the REM adjustment underneath had actually already fired correctly, it just looked
+broken. Fixed (`de59e26`) by switching to `expunge=3` (real hard delete, gated behind
+`verifyExpungePermission()`/`p_food_expunge` per liberty's own convention for that case) and
+adding the missing `end_date IS NULL` filter as a second, independent safeguard. Lester had
+already hand-fixed the affected data directly on both desktop and srv9 before the code fix
+landed — nothing left to reconcile.
+
+**`list_pantry.php` gained a shop filter + inline shop display** (`8804353`), same session —
+same `sup` param / `SUP`-xref pattern already used by `list_components.php`'s own filter. Shown
+after the item title as `[shop]`, deliberately not `(shop)` — Samsung-sourced titles already
+carry brand names in parens (e.g. `"...(Chef Select)"`), so a same-bracket shop suffix would read
+ambiguously; square brackets keep the two visually distinct, confirmed live against a real title
+that has both.
