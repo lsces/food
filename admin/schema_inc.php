@@ -147,9 +147,9 @@ $xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,
 // which saturates)" line — even though this one row also carries mono/poly/trans/
 // cholesterol that don't appear on a standard label; those just ride along on the
 // same row/sort position.
-$xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`sort_order`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('FAT','foodcomponent','nutrition','Fat breakdown (mg, per 100g)',    0,2,3,'','json-list','[\"total_mg\",\"saturated_mg\",\"mono_mg\",\"poly_mg\",\"trans_mg\",\"cholesterol_mg\"]')";
+$xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`sort_order`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('FAT','foodcomponent','nutrition','Fat breakdown (per 100g)',    0,2,3,'','json-list-mgg','[\"total_mg\",\"saturated_mg\",\"mono_mg\",\"poly_mg\",\"trans_mg\",\"cholesterol_mg\"]')";
 $xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`sort_order`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('VIT','foodcomponent','nutrition','Vitamins (mixed units, per 100g)',0,8,3,'','json-list','[\"vitamin_a_mcg\",\"vitamin_c_mg\",\"vitamin_d_mcg\"]')";
-$xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`sort_order`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('MIN','foodcomponent','nutrition','Minerals (mg, per 100g)',        0,9,3,'','json-list','[\"potassium_mg\",\"calcium_mg\",\"iron_mg\"]')";
+$xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`sort_order`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('MIN','foodcomponent','nutrition','Minerals (mg, per 100g)',    0,9,3,'','json-list','[\"potassium_mg\",\"calcium_mg\",\"iron_mg\"]')";
 
 // 5AD — five-a-day adjustment factor (revised 2026-08-18, was a plain yes/no marker).
 // Row exists = counts toward five-a-day at all, no row = doesn't (unchanged). But the
