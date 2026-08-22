@@ -579,15 +579,21 @@ class FoodComponent extends LibertyContent {
 	}
 
 	/**
-	 * Always grams, never a mixed mg/g display (was ">=1000mg switches to
-	 * grams, otherwise plain mg" — inconsistent with edit_nutrition.php's
-	 * gram-only entry convention, and a genuinely small value like 45mg
-	 * sodium showing as "45mg" while everything else on the same label reads
-	 * in grams was the actual "this needs tidying" complaint). Only for
-	 * genuine mg-mass values — see NUTRITION_SUMMARY_FIELDS' 'format'; CAL
-	 * (kcal, not a mass) must never be passed through this.
+	 * >=1000mg switches to grams (1500 -> "1.5g"), otherwise plain rounded mg
+	 * (250 -> "250mg"). Only for genuine mg-mass values — see NUTRITION_SUMMARY_FIELDS'
+	 * 'mass' flag; CAL (kcal, not a mass) must never be passed through this.
+	 *
+	 * 2026-08-22: briefly changed to always-grams, reverted the same day — this
+	 * summary-bar behaviour was never the complaint (Lester: "not unhappy about
+	 * the 700mg in the totals bar"). The actual ask was the Nutrition tab's raw
+	 * per-row xref display, see FoodComponent::formatMgThreshold() and
+	 * view_nutrition_group.tpl.
 	 */
 	public static function formatMg( $pMg ): string {
-		return self::mgToG( $pMg ).'g';
+		$mg = (float)$pMg;
+		if( abs( $mg ) >= 1000 ) {
+			return number_format( $mg / 1000, 1 ).'g';
+		}
+		return round( $mg ).'mg';
 	}
 }

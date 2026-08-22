@@ -110,18 +110,24 @@ $xrefTypes[] = "INSERT INTO `{$X}liberty_xref_group` (`x_group`,`content_type_gu
 // LibertyXrefType::loadContent()'s xref-row query orders by it — see the liberty-level
 // fix in the same commit; before that fix this column existed but every consumer's
 // display order fell back to plain alphabetical-by-item-code regardless of this value.
-$xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`sort_order`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('CAL', 'foodcomponent','nutrition','Calories (kcal, per 100g)',     0,1,3,'','text',NULL)";
-$xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`sort_order`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('CARB','foodcomponent','nutrition','Carbohydrate (mg, per 100g)',  0,3,3,'','text',NULL)";
-$xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`sort_order`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('SUGR','foodcomponent','nutrition','Sugar (mg, per 100g)',         0,4,3,'','text',NULL)";
-$xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`sort_order`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('FIBR','foodcomponent','nutrition','Fibre (mg, per 100g)',         0,5,3,'','text',NULL)";
-$xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`sort_order`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('PROT','foodcomponent','nutrition','Protein (mg, per 100g)',       0,6,3,'','text',NULL)";
-// SOD uses its own 'sod' edit template (food/templates/xref/foodcomponent/edit_sod_item.tpl)
-// — accepts either salt (g, UK label convention) or sodium (mg) directly, converting salt
-// to sodium at save time (see liberty/edit_xref.php's sod_salt/sod_sodium handling). No
-// dedicated view template needed — falls back to the generic text view automatically
-// (getXrefRecordTemplate()'s hardcoded final fallback), since display is just the stored
-// sodium mg value, same as every other scalar nutrition item.
-$xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`sort_order`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('SOD', 'foodcomponent','nutrition','Sodium (mg, per 100g)',        0,7,3,'','sod', NULL)";
+$xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`sort_order`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('CAL', 'foodcomponent','nutrition','Calories (kcal, per 100g)', 0,1,3,'','text',NULL)";
+// CARB/SUGR/FIBR/PROT/SOD: 'mgg'/'sod' view templates (food/templates/xref/foodcomponent/
+// view_mgg_item.tpl, view_sod_item.tpl) show the stored mg value through the same
+// >=1000mg-switches-to-grams threshold FoodComponent::formatMg() already uses for the
+// summary bars (view_day/view_assembly/view_component) — added 2026-08-22, this group's
+// per-row Nutrition-tab display had no unit conversion at all before (raw "26800" next to
+// a label that just said "(mg, per 100g)" statically). Labels below dropped the hardcoded
+// "mg" since the displayed value now carries its own dynamic unit. Storage is untouched —
+// still integer mg, same as every other scalar nutrition item; this is a view-only change.
+$xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`sort_order`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('CARB','foodcomponent','nutrition','Carbohydrate (per 100g)',   0,3,3,'','mgg', NULL)";
+$xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`sort_order`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('SUGR','foodcomponent','nutrition','Sugar (per 100g)',          0,4,3,'','mgg', NULL)";
+$xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`sort_order`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('FIBR','foodcomponent','nutrition','Fibre (per 100g)',          0,5,3,'','mgg', NULL)";
+$xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`sort_order`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('PROT','foodcomponent','nutrition','Protein (per 100g)',        0,6,3,'','mgg', NULL)";
+// SOD keeps its own 'sod' template code (drives edit_sod_item.tpl — accepts salt g or
+// sodium mg, converting salt at save time). Now also has its own view_sod_item.tpl,
+// same threshold-formatting logic as 'mgg' above — no schema change needed for SOD
+// itself, the template code was already registered, it just had no view file before.
+$xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`sort_order`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('SOD', 'foodcomponent','nutrition','Sodium (per 100g)',         0,7,3,'','sod', NULL)";
 
 // Compound nutrition items — long-tail fields nobody browses individually, one row
 // each, JSON payload in liberty_xref.data. 'json-list' is a generic liberty item
