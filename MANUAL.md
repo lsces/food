@@ -41,6 +41,11 @@ curation rather than guessing.
   `SOD` has its own `template='sod'` item template (`edit_sod_item.tpl`) accepting Salt (g) *or*
   Sodium (mg) — salt takes priority when both are filled, `sodium_mg = salt_g / 2.5 × 1000`
   (UK labels show salt, not sodium).
+
+  `edit_nutrition.php`'s group-edit form (see below) shows/accepts `CARB`/`SUGR`/`FIBR`/`PROT`
+  and `FAT`'s `total`/`saturated` sub-fields **in grams**, converting ×1000 on save — storage
+  stays integer mg regardless of entry page. `CAL` (kcal) and `5AD` (a decimal factor, not a
+  mass) are never converted.
 - **Compound JSON xref_items** (`liberty_xref.data`, a CLOB, one row each): `FAT` →
   `{total/saturated/mono/poly/trans/cholesterol}_mg`, `VIT` → `{vitamin_a_mcg, vitamin_c_mg,
   vitamin_d_mcg}` (genuinely mixed units per field — `_mcg`/`_mg` suffixes baked into the key

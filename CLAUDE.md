@@ -191,3 +191,8 @@ list generator, not the generator itself (still blocked on `MIN` not existing).
 own list (see `MANUAL.md`'s "Not yet built"); the recipe-publish step and the modal quick-add UX
 idea were reclassified by Lester as liberty-level projects, not Food's own, since both are
 cross-package in scope with Food just as the first consumer.
+
+**One last tidy the same day**: `edit_nutrition.php`'s Carbohydrate/Sugar/Fibre/Protein and FAT's
+total/saturated fields switched from mg-entry to g-entry (storage stays integer mg) — flagged as
+a deliberate future option back on 2026-08-21, actioned once Lester asked for it directly. See
+`MANUAL.md`'s nutrition section.
