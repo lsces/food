@@ -12,7 +12,7 @@
 			<input type="hidden" name="component_id" id="component_id" value="{$smarty.request.component_id|default:''|escape}" />
 
 			<div class="form-group">
-				{formlabel label="Component" for="component_title" mandatory="y"}
+				{formlabel label="Food Item" for="component_title" mandatory="y"}
 				{forminput}
 					<div style="position:relative">
 						<input type="text" class="form-control" name="component_title" id="component_title"
@@ -22,7 +22,7 @@
 						<ul id="comp_dropdown" class="dropdown-menu"
 							style="display:none;position:absolute;width:100%;z-index:1000;max-height:220px;overflow-y:auto"></ul>
 					</div>
-					{formhelp note="Type to search existing components, or enter a new title to create one. Where the same title exists from more than one shop, the supplier shows in brackets — pick the right one rather than retyping the plain title."}
+					{formhelp note="Type to search existing food items, or enter a new title to create one. Where the same title exists from more than one shop, the supplier shows in brackets — pick the right one rather than retyping the plain title."}
 				{/forminput}
 			</div>
 

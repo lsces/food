@@ -29,4 +29,4 @@ $gBitSmarty->assign( 'listInfo', $_REQUEST['listInfo'] );
 $gBitSmarty->assign( 'componentList', $componentList );
 
 $gBitSmarty->assign( 'gDefaultCenter', 'bitpackage:food/list_components.tpl' );
-$gBitSystem->display( 'bitpackage:kernel/dynamic.tpl', 'List Components', [ 'display_mode' => 'list' ] );
+$gBitSystem->display( 'bitpackage:kernel/dynamic.tpl', 'List Food Items', [ 'display_mode' => 'list' ] );

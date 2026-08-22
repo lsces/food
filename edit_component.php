@@ -98,4 +98,4 @@ $gBitSmarty->assign( 'gContent',  $gContent );
 $gBitSmarty->assign( 'gXrefInfo', $gContent->mXrefInfo );
 $gBitSmarty->assign( 'errors',    $gContent->mErrors );
 
-$gBitSystem->display( 'bitpackage:food/edit_component.tpl', KernelTools::tra( 'Edit Component' ), [ 'display_mode' => 'edit' ] );
+$gBitSystem->display( 'bitpackage:food/edit_component.tpl', KernelTools::tra( 'Edit Food Item' ), [ 'display_mode' => 'edit' ] );

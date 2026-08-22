@@ -58,7 +58,7 @@
 			<table class="table table-condensed">
 				<thead>
 					<tr>
-						<th>{tr}Component{/tr}</th>
+						<th>{tr}Food Item{/tr}</th>
 						<th>{tr}Quantity{/tr}</th>
 						<th></th>
 					</tr>
@@ -93,7 +93,7 @@
 					<div class="form-inline">
 						<div class="form-group" style="position:relative">
 							<input type="text" class="form-control" name="component_title" id="component_title"
-								autocomplete="off" placeholder="{tr}Component…{/tr}" />
+								autocomplete="off" placeholder="{tr}Food Item…{/tr}" />
 							<ul id="comp_dropdown" class="dropdown-menu"
 								style="display:none;position:absolute;width:390px;z-index:1000;max-height:220px;overflow-y:auto"></ul>
 						</div>
@@ -107,7 +107,7 @@
 						</div>
 						<button type="submit" class="btn btn-primary" name="fAddComponent" value="1">{tr}Add{/tr}</button>
 					</div>
-					{formhelp note="Type to search existing components, or enter a new title to create one. Where the same title exists from more than one shop, the supplier shows in brackets — pick the right one rather than retyping the plain title. Adding a line returns you straight here, ready for the next one."}
+					{formhelp note="Type to search existing food items, or enter a new title to create one. Where the same title exists from more than one shop, the supplier shows in brackets — pick the right one rather than retyping the plain title. Adding a line returns you straight here, ready for the next one."}
 				{/form}
 			</div>
 

@@ -3,18 +3,18 @@
 	<header>
 		<div class="floaticon hidden-print">
 			{if $gBitUser->hasPermission('p_food_create')}
-				<a href="{$smarty.const.FOOD_PKG_URL}edit_component.php">{biticon ipackage="icons" iname="kt-add-filters" iexplain="Create Component"}</a>
+				<a href="{$smarty.const.FOOD_PKG_URL}edit_component.php">{biticon ipackage="icons" iname="kt-add-filters" iexplain="Create Food Item"}</a>
 			{/if}
 			<form class="minifind" action="{$smarty.const.FOOD_PKG_URL}list_components.php" method="get">
 				<div class="form-inline">
 					<div class="form-group">
-						<input class="form-control input-sm" type="text" name="find" placeholder="{tr}Components{/tr}" value="{$smarty.request.find|escape}" />
+						<input class="form-control input-sm" type="text" name="find" placeholder="{tr}Food Items{/tr}" value="{$smarty.request.find|escape}" />
 					</div>
 					<button type="submit" class="btn btn-default btn-sm">{tr}Search{/tr}</button>
 				</div>
 			</form>
 		</div>
-		<h1>{tr}Components{/tr}</h1>
+		<h1>{tr}Food Items{/tr}</h1>
 	</header>
 
 	<section class="body">
@@ -38,7 +38,7 @@
 						{if $gBitUser->hasPermission('p_food_update')}<td><a href="{$smarty.const.FOOD_PKG_URL}edit_component.php?content_id={$comp.content_id}">{biticon ipackage="icons" iname="edit" iexplain="Edit"}</a></td>{/if}
 					</tr>
 				{foreachelse}
-					<tr><td colspan="5" class="norecords">{tr}No components found.{/tr}</td></tr>
+					<tr><td colspan="5" class="norecords">{tr}No food items found.{/tr}</td></tr>
 				{/foreach}
 			</tbody>
 		</table>

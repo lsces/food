@@ -6,7 +6,7 @@
 				<a title="{tr}Mark review done{/tr}" href="edit_component.php?content_id={$gContent->mContentId}&amp;clear_review=1">{biticon ipackage="icons" iname="dialog-ok-apply" iexplain="Mark review done"}</a>
 			</div>
 		{/if}
-		<h1>{tr}Edit Component{/tr}{if $gContent->isValid()}: {$gContent->getTitle()|escape}{/if}</h1>
+		<h1>{tr}Edit Food Item{/tr}{if $gContent->isValid()}: {$gContent->getTitle()|escape}{/if}</h1>
 	</header>
 	<div class="body">
 		{formfeedback error=$errors}
@@ -33,7 +33,7 @@
 		{/form}
 
 		{if $gContent->isValid()}
-			<p><a href="view_component.php?content_id={$gContent->mContentId}">{tr}Back to component{/tr}</a></p>
+			<p><a href="view_component.php?content_id={$gContent->mContentId}">{tr}Back to food item{/tr}</a></p>
 		{/if}
 
 		{if $gXrefInfo && $gXrefInfo->mGroups}
@@ -58,7 +58,7 @@
 						</div>
 						<button type="submit" class="btn btn-danger" name="fMerge" value="1">{tr}Merge and delete this{/tr}</button>
 					</div>
-					{formhelp note="Repoints every reference to THIS component (meals, receipts) onto the target, then permanently deletes this one. Enter the good copy's content_id — no search yet, check its URL/edit page for the number."}
+					{formhelp note="Repoints every reference to THIS food item (meals, receipts) onto the target, then permanently deletes this one. Enter the good copy's content_id — no search yet, check its URL/edit page for the number."}
 				{/form}
 			</fieldset>
 		{/if}

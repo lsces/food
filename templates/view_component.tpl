@@ -3,7 +3,7 @@
 	<header>
 		<div class="floaticon">
 			{if $gContent->hasUpdatePermission()}
-				<a title="{tr}Edit{/tr}" href="{$smarty.const.FOOD_PKG_URL}edit_component.php?content_id={$gContent->mContentId}">{biticon ipackage="icons" iname="edit" iexplain="Edit Component"}</a>
+				<a title="{tr}Edit{/tr}" href="{$smarty.const.FOOD_PKG_URL}edit_component.php?content_id={$gContent->mContentId}">{biticon ipackage="icons" iname="edit" iexplain="Edit Food Item"}</a>
 			{/if}
 		</div>
 		<h1>{$gContent->getTitle()|escape}</h1>

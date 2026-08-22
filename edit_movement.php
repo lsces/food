@@ -69,7 +69,7 @@ if( !empty( $_REQUEST['save'] ) ) {
 	$mode  = ( $_REQUEST['qty_mode'] ?? 'base' ) === 'sgl' ? 'sgl' : 'base';
 
 	if( $title === '' ) {
-		$addErrors[] = KernelTools::tra( 'Component title is required.' );
+		$addErrors[] = KernelTools::tra( 'Food item title is required.' );
 	} elseif( !is_numeric( $qty ) || (float)$qty <= 0 ) {
 		$addErrors[] = KernelTools::tra( 'Quantity must be a positive number.' );
 	} else {

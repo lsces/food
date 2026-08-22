@@ -18,7 +18,7 @@
 		<table class="table table-striped table-hover">
 			<thead>
 				<tr>
-					<th>{tr}Component{/tr}</th>
+					<th>{tr}Food Item{/tr}</th>
 					<th>{tr}In stock{/tr}</th>
 					<th>{tr}Note{/tr}</th>
 				</tr>

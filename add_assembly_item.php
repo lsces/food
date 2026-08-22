@@ -39,7 +39,7 @@ if( !empty( $_REQUEST['fAddComponent'] ) ) {
 	$qty    = trim( $_REQUEST['xkey'] ?? '' );
 
 	if( $title === '' ) {
-		$errors[] = KernelTools::tra( 'Component title is required.' );
+		$errors[] = KernelTools::tra( 'Food item title is required.' );
 	} else {
 		if( $compId ) {
 			// Picked from the dropdown, which shows supplier alongside title so

@@ -18,7 +18,7 @@
 				<table class="table table-condensed">
 					<thead>
 						<tr>
-							<th>{tr}Component{/tr}</th>
+							<th>{tr}Food Item{/tr}</th>
 							<th>{tr}Quantity{/tr}</th>
 							{foreach $nutritionFields as $key => $meta}
 								<th>{$meta.label|escape}</th>
