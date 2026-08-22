@@ -10,7 +10,7 @@ namespace Bitweaver\Food;
 
 require_once '../kernel/includes/setup_inc.php';
 
-global $gBitSystem, $gBitSmarty;
+global $gBitSystem, $gBitSmarty, $gBitDb;
 
 $gBitSystem->verifyPackage( 'food' );
 $gBitSystem->verifyPermission( 'p_food_view' );
@@ -27,6 +27,18 @@ $_REQUEST['listInfo']['parameters'] = array_filter( [
 ] );
 $gBitSmarty->assign( 'listInfo', $_REQUEST['listInfo'] );
 $gBitSmarty->assign( 'componentList', $componentList );
+
+// Shop filter — the query-level support (getList()'s 'sup' param) has existed
+// since 2026-08-17, this is just the first UI control exposing it. Same
+// shops query as edit_movement.php's own Shop dropdown.
+$shops = $gBitDb->getAll(
+	"SELECT lc.`content_id`, lc.`title` FROM `".BIT_DB_PREFIX."liberty_content` lc
+		JOIN `".BIT_DB_PREFIX."liberty_xref` lx ON ( lx.`content_id` = lc.`content_id` AND lx.`item` = 'B04' )
+	 WHERE lc.`content_type_guid` = 'contactbusiness'
+	 ORDER BY lc.`title`"
+);
+$gBitSmarty->assign( 'shops', $shops );
+$gBitSmarty->assign( 'selectedShop', !empty( $_REQUEST['sup'] ) ? (int)$_REQUEST['sup'] : 0 );
 
 $gBitSmarty->assign( 'gDefaultCenter', 'bitpackage:food/list_components.tpl' );
 $gBitSystem->display( 'bitpackage:kernel/dynamic.tpl', 'List Food Items', [ 'display_mode' => 'list' ] );

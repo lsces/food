@@ -10,6 +10,14 @@
 					<div class="form-group">
 						<input class="form-control input-sm" type="text" name="find" placeholder="{tr}Food Items{/tr}" value="{$smarty.request.find|escape}" />
 					</div>
+					<div class="form-group">
+						<select class="form-control input-sm" name="sup" onchange="this.form.submit()">
+							<option value="">{tr}Any shop{/tr}</option>
+							{foreach $shops as $shop}
+								<option value="{$shop.content_id}"{if $selectedShop eq $shop.content_id} selected="selected"{/if}>{$shop.title|escape}</option>
+							{/foreach}
+						</select>
+					</div>
 					<button type="submit" class="btn btn-default btn-sm">{tr}Search{/tr}</button>
 				</div>
 			</form>
