@@ -38,7 +38,7 @@
 			<div class="form-group">
 				{formlabel label="Purchase date" for="purchase_date"}
 				{forminput}
-					<input type="text" class="form-control input-small" name="purchase_date" id="purchase_date" value="{$purchaseDateVal|escape}" placeholder="dd/mm/yyyy" />
+					<input type="date" class="form-control input-small" name="purchase_date" id="purchase_date" value="{$purchaseDateVal|escape}" />
 				{/forminput}
 			</div>
 

@@ -42,16 +42,6 @@ if( $gContent->isValid() ) {
 	$gBitSystem->verifyPermission( 'p_food_create' );
 }
 
-// Helper: parse dd/mm/yy or dd/mm/yyyy -> Unix timestamp, or null. Mirrors
-// stock/edit_movement.php's own parseMovementDate().
-function foodParseMovementDate( string $s ): ?int {
-	$parts = explode( '/', trim( $s ) );
-	if( count( $parts ) !== 3 ) return null;
-	$year = (int)$parts[2] < 100 ? 2000 + (int)$parts[2] : (int)$parts[2];
-	$ts = mktime( 0, 0, 0, (int)$parts[1], (int)$parts[0], $year );
-	return $ts ?: null;
-}
-
 $addErrors = [];
 
 if( !empty( $_REQUEST['save'] ) ) {
@@ -64,7 +54,10 @@ if( !empty( $_REQUEST['save'] ) ) {
 		$shopId  = !empty( $_REQUEST['shop_content_id'] ) && is_numeric( $_REQUEST['shop_content_id'] ) ? (int)$_REQUEST['shop_content_id'] : null;
 		$refKey  = trim( $_REQUEST['ref_key'] ?? '' );
 		$note    = trim( $_REQUEST['note'] ?? '' );
-		$purDate = !empty( $_REQUEST['purchase_date'] ) ? foodParseMovementDate( $_REQUEST['purchase_date'] ) : null;
+		// type="date" always submits unambiguous ISO Y-m-d — no custom dd/mm
+		// parser needed (see copy_assembly.php's identical strtotime() use).
+		$dateStr = trim( $_REQUEST['purchase_date'] ?? '' );
+		$purDate = $dateStr ? ( strtotime( $dateStr ) ?: null ) : null;
 		$gContent->setReceiptReference( $shopId, $refKey, $purDate, $note );
 		header( 'Location: '.FOOD_PKG_URL.'edit_movement.php?content_id='.$gContent->mContentId );
 		die;
@@ -166,7 +159,7 @@ $shops = $gBitDb->getAll(
 );
 
 $purchaseDateVal = !empty( $gContent->mInfo['ref_start_date'] )
-	? date( 'd/m/Y', strtotime( $gContent->mInfo['ref_start_date'] ) ) : '';
+	? date( 'Y-m-d', strtotime( $gContent->mInfo['ref_start_date'] ) ) : '';
 
 $gBitSmarty->assign( 'gContent',        $gContent );
 $gBitSmarty->assign( 'shops',           $shops );
