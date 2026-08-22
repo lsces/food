@@ -20,6 +20,16 @@ require_once '../kernel/includes/setup_inc.php';
 
 global $gBitSystem, $gBitSmarty;
 
+// Time field below reads/writes local (display-timezone) wall-clock time via
+// BitDate, converting to/from true UTC for storage — bitweaver's own
+// established convention (see kernel/includes/classes/BitDate.php's docblock:
+// "Dates will always stored in UTC... Display dates will be computed based on
+// the preferred display offset"), already used elsewhere (articles' publish/
+// expire date pickers). Food never plugged into it until 2026-08-22 — found
+// via a real BST-period timestamp discrepancy, see Claude memory
+// project_food_bst_timestamp_fix for the full incident.
+$gBitDate = $gBitSystem->mServerTimestamp;
+
 $gBitSystem->verifyPackage( 'food' );
 
 $gContent = new FoodAssembly( !empty( $_REQUEST['content_id'] ) ? (int)$_REQUEST['content_id'] : null );
@@ -41,14 +51,21 @@ if( !empty( $_REQUEST['save'] ) ) {
 		}
 	}
 	// Time only — the date is fixed, not editable here (that's what
-	// copy_assembly.php is for). Plain UTC arithmetic, matching every other
-	// event_time computation in FoodAssembly.php — no display-timezone
-	// conversion, to stay consistent with the day-boundary math elsewhere.
+	// copy_assembly.php is for). The typed HH:MM is the user's local wall-clock
+	// time — combined with the *displayed* (local) date, then converted through
+	// BitDate to true UTC for storage.
 	$timeStr = trim( $_REQUEST['event_time'] ?? '' );
 	if( !$errors && preg_match( '/^([01]\d|2[0-3]):([0-5]\d)$/', $timeStr, $m ) ) {
 		$currentEventTime = (int)$gContent->getField( 'event_time' );
-		$dayStart = strtotime( gmdate( 'Y-m-d 00:00:00', $currentEventTime ) );
-		$newEventTime = $dayStart + ( (int)$m[1] * 3600 ) + ( (int)$m[2] * 60 );
+		$displayCurrent = $gBitDate->getDisplayDateFromUTC( $currentEventTime );
+		// gmmktime(), not strtotime(gmdate(...)) — BitDate's own conversion calls
+		// mutate PHP's ambient default timezone as a side effect (never restored),
+		// so a bare strtotime() here would silently re-interpret the naive string
+		// against that just-changed timezone instead of UTC, double-shifting the
+		// result. Same defensive pattern BitArticle::store() uses for exactly this
+		// reason (gmmktime()/getUTCFromDisplayDate(), never strtotime() alone).
+		$dayStart = gmmktime( 0, 0, 0, (int)gmdate( 'n', $displayCurrent ), (int)gmdate( 'j', $displayCurrent ), (int)gmdate( 'Y', $displayCurrent ) );
+		$newEventTime = $gBitDate->getUTCFromDisplayDate( $dayStart + ( (int)$m[1] * 3600 ) + ( (int)$m[2] * 60 ) );
 		if( $newEventTime !== $currentEventTime ) {
 			if( !$gContent->changeEventTime( $newEventTime ) ) {
 				$errors = $gContent->mErrors;
@@ -68,8 +85,9 @@ if( !empty( $_REQUEST['save'] ) ) {
 $mealType = $gContent->getMealType();
 
 $eventTime    = (int)$gContent->getField( 'event_time' );
-$dateFixed    = gmdate( 'Y-m-d', $eventTime );
-$timeDisplay  = gmdate( 'H:i', $eventTime );
+$displayEventTime = $gBitDate->getDisplayDateFromUTC( $eventTime );
+$dateFixed    = gmdate( 'Y-m-d', $displayEventTime );
+$timeDisplay  = gmdate( 'H:i', $displayEventTime );
 
 $gBitSmarty->assign( 'gContent',      $gContent );
 $gBitSmarty->assign( 'mealType',      $mealType );
