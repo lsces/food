@@ -196,3 +196,25 @@ cross-package in scope with Food just as the first consumer.
 total/saturated fields switched from mg-entry to g-entry (storage stays integer mg) — flagged as
 a deliberate future option back on 2026-08-21, actioned once Lester asked for it directly. See
 `MANUAL.md`'s nutrition section.
+
+**Nutrition tab display tidied to match the totals bar**, same day: the shared `formatMg()`
+totals-bar threshold behaviour (`>=1000mg` → `"X.Xg"`) was mistakenly changed to always-grams when
+asked to "tidy" the Nutrition tab display — the actual ask was about the tab's *raw per-row*
+values (`CARB`/`SUGR`/`FIBR`/`PROT`/`SOD`, still showing plain integer mg with no conversion at
+all), not the totals bar Lester had already confirmed he was happy with. Corrected: `formatMg()`
+reverted untouched to its original threshold logic, and two new food-local xref view templates
+built instead (`view_mgg_item.tpl`, `view_sod_item.tpl`) applying that same threshold to the
+Nutrition tab's row display specifically — `template` column on `CARB`/`SUGR`/`FIBR`/`PROT`
+switched to `'mgg'` in `admin/schema_inc.php`, hand-pushed to desktop+srv9 (`576f27c`). Worth
+remembering: when a "tidy the display" ask names a specific tab/view, don't assume it means every
+display of that value — check which one before touching a shared formatter.
+
+**`json-list-mgg` view template added** (`4aef1df`) for `FAT`'s compound JSON display — same
+mg/g threshold as `view_mgg_item.tpl`, plus "a little magic with the field titles": the `_mg`/
+`_mcg` unit suffix is stripped from the JSON key before building the row label, so "Total"/
+"Saturated" etc. stay accurate once the displayed unit can flip between mg and g. `MIN` briefly
+got the same treatment, then reverted the same session once Lester flagged that potassium/
+calcium/iron are decimal-scale mg values on a real label and should never sensibly flip to grams
+(and may want fractional-mg precision, closer to `VIT`'s problem than `FAT`'s). `VIT` untouched
+throughout — genuinely mixed mcg/mg units per field is a separate, harder problem, not part of
+this ask.

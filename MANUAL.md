@@ -46,13 +46,27 @@ curation rather than guessing.
   and `FAT`'s `total`/`saturated` sub-fields **in grams**, converting ×1000 on save — storage
   stays integer mg regardless of entry page. `CAL` (kcal) and `5AD` (a decimal factor, not a
   mass) are never converted.
+
+  On the Nutrition tab's row list (a different display from the edit form above), `CARB`/`SUGR`/
+  `FIBR`/`PROT` use `template='mgg'` (`view_mgg_item.tpl`) and `SOD` uses its own `template='sod'`
+  view — both apply the same `>=1000mg → "X.Xg"` threshold as `formatMg()`'s totals-bar behaviour,
+  rather than showing the raw stored integer mg.
 - **Compound JSON xref_items** (`liberty_xref.data`, a CLOB, one row each): `FAT` →
   `{total/saturated/mono/poly/trans/cholesterol}_mg`, `VIT` → `{vitamin_a_mcg, vitamin_c_mg,
   vitamin_d_mcg}` (genuinely mixed units per field — `_mcg`/`_mg` suffixes baked into the key
   names rather than one blob-wide unit), `MIN` → `{potassium/calcium/iron}_mg`. Edited via a
   food-package-local `template='json-list'` (own per-package template dispatch — no generic
   liberty JSON-xref mechanism exists yet, built here first, promote to liberty only if a second
-  package wants it).
+  package wants it) for all three — the edit form is unaffected by the view-side split below.
+
+  **View-side split, `FAT` only**: `FAT`'s row-list display uses `template='json-list-mgg'`
+  (`view_json-list-mgg_item.tpl`) instead of plain `json-list` — same `>=1000mg → "X.Xg"`
+  threshold as `formatMg()`, applied per sub-field, with the `_mg`/`_mcg` suffix stripped from the
+  key before building the row label (so "Total"/"Saturated" stay accurate once the displayed unit
+  can flip). `MIN` and `VIT` stay on plain `json-list` display deliberately: `MIN`'s values are
+  decimal-scale mg (potassium/calcium/iron never sensibly shown in g) and `VIT` already has
+  genuinely mixed mcg/mg units baked into its own keys — a different problem this doesn't attempt
+  to solve.
 - **`5AD`** (five-a-day) — a fixed portion-size *adjustment factor*, `xkey = true_portion_g / 80`
   (`1` for a standard 80g portion, `0.375` for dried fruit's real 30g portion). Not a per-100g
   additive nutrient like the other eight — `FoodComponent::scaleNutrition()` special-cases it:
