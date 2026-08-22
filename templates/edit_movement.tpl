@@ -82,6 +82,7 @@
 				{formfeedback error=$addErrors}
 				{form id="addComponentForm" ipackage="food" ifile="edit_movement.php"}
 					<input type="hidden" name="content_id" value="{$gContent->mContentId}" />
+					<input type="hidden" name="component_id" id="component_id" value="" />
 					<div class="form-inline">
 						<div class="form-group" style="position:relative">
 							<input type="text" class="form-control" name="component_title" id="component_title"
@@ -99,7 +100,7 @@
 						</div>
 						<button type="submit" class="btn btn-primary" name="fAddComponent" value="1">{tr}Add{/tr}</button>
 					</div>
-					{formhelp note="Type to search existing components, or enter a new title to create one. Adding a line returns you straight here, ready for the next one."}
+					{formhelp note="Type to search existing components, or enter a new title to create one. Where the same title exists from more than one shop, the supplier shows in brackets — pick the right one rather than retyping the plain title. Adding a line returns you straight here, ready for the next one."}
 				{/form}
 			</div>
 
@@ -112,8 +113,13 @@
 <script>
 (function($) {
 	var timer;
+	var seq = 0; // request-generation counter — same overlapping-response race
+	             // add_assembly_item.tpl was fixed for in food commit 1ecf60e,
+	             // never ported here until now.
 	var $input   = $('#component_title');
 	var $dd      = $('#comp_dropdown');
+	var $id      = $('#component_id');
+	var $qty     = $('#quantity');
 	var $qtyMode = $('#qty_mode');
 
 	function setQtyModeOptions(quantityItem, hasSgl) {
@@ -128,21 +134,29 @@
 	$input.trigger('focus');
 
 	$input.on('input', function() {
+		// Manual retyping invalidates whatever component was previously selected —
+		// same reasoning as add_assembly_item.tpl's component_id invalidation —
+		// so a stale id/unit label can't silently survive a hand-edit and point at
+		// the wrong (same-titled, different-supplier) component.
+		$id.val('');
+		setQtyModeOptions(null, false);
 		var q = $(this).val();
 		clearTimeout(timer);
 		$dd.hide().empty();
-		// Manual retyping invalidates whatever component was previously selected —
-		// same reasoning as add_assembly_item.tpl's component_id invalidation —
-		// so a stale unit label can't silently survive a hand-edit.
-		setQtyModeOptions(null, false);
 		if (q.length < 2) return;
+		var reqId = ++seq;
 		timer = setTimeout(function() {
 			$.getJSON('{$smarty.const.FOOD_PKG_URL}includes/lookup_component.php', {ldelim}q: q{rdelim}, function(data) {
+				if (reqId !== seq) return; // a newer request has since superseded this one
+				$dd.empty();
 				if (!data.length) return;
 				$.each(data, function(i, row) {
+					var label = row.supplier ? row.title + ' (' + row.supplier + ')' : row.title;
 					$dd.append($('<li>').append(
-						$('<a>').attr('href','#').data('title', row.title)
-							.data('quantity-item', row.quantity_item).data('has-sgl', row.has_sgl).text(row.title)
+						$('<a>').attr('href','#')
+							.data('id', row.content_id).data('label', label)
+							.data('quantity-item', row.quantity_item).data('has-sgl', row.has_sgl)
+							.text(label)
 					));
 				});
 				$dd.show();
@@ -152,10 +166,11 @@
 
 	$(document).on('mousedown', '#comp_dropdown a', function(e) {
 		e.preventDefault();
-		$input.val($(this).data('title'));
+		$input.val($(this).data('label'));
+		$id.val($(this).data('id'));
 		setQtyModeOptions($(this).data('quantity-item'), $(this).data('has-sgl'));
 		$dd.hide().empty();
-		$('#quantity').trigger('focus');
+		$qty.trigger('focus');
 	});
 
 	$input.on('blur', function() { setTimeout(function() { $dd.hide(); }, 150); });

@@ -80,11 +80,32 @@ if( !empty( $_REQUEST['save'] ) ) {
 	} elseif( !is_numeric( $qty ) || (float)$qty <= 0 ) {
 		$addErrors[] = KernelTools::tra( 'Quantity must be a positive number.' );
 	} else {
-		$compId = (int)$gBitDb->getOne(
-			"SELECT lc.`content_id` FROM `".BIT_DB_PREFIX."liberty_content` lc
-			 WHERE lc.`content_type_guid` = 'foodcomponent' AND lc.`title` = ?",
-			[ $title ]
-		);
+		// Picked from the dropdown, which shows supplier alongside title so
+		// same-titled components from different shops are distinguishable — same
+		// reasoning/pattern as add_assembly_item.php. Still verified here rather
+		// than trusted blindly; a tampered or stale id falls through to the
+		// exact-title lookup instead.
+		$compId = (int)( $_REQUEST['component_id'] ?? 0 );
+		if( $compId ) {
+			$valid = (bool)$gBitDb->getOne(
+				"SELECT 1 FROM `".BIT_DB_PREFIX."liberty_content` WHERE `content_id` = ? AND `content_type_guid` = 'foodcomponent'",
+				[ $compId ]
+			);
+			if( !$valid ) {
+				$compId = 0;
+			}
+		}
+		if( !$compId ) {
+			// Fallback for a freshly-typed title (no suggestion picked) — only
+			// ambiguous itself if two components happen to share the exact same
+			// title with nothing selected, an edge case the dropdown above is
+			// there specifically to avoid.
+			$compId = (int)$gBitDb->getOne(
+				"SELECT lc.`content_id` FROM `".BIT_DB_PREFIX."liberty_content` lc
+				 WHERE lc.`content_type_guid` = 'foodcomponent' AND lc.`title` = ?",
+				[ $title ]
+			);
+		}
 
 		if( !$compId ) {
 			// No path back to the movement after creating the component here — same
