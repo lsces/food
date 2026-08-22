@@ -26,7 +26,7 @@
 				{foreach from=$pantryList item=p}
 					<tr>
 						<td><a href="{$p.display_url|escape}">{$p.title|escape}</a></td>
-						<td>{$p.quantity|escape}{$p.quantity_unit|escape}</td>
+						<td>{$p.display_quantity|escape}{$p.display_unit|escape}</td>
 					</tr>
 				{foreachelse}
 					<tr><td colspan="2" class="norecords">{tr}Nothing currently tracked as in stock.{/tr}</td></tr>

@@ -92,6 +92,11 @@
 						<div class="form-group">
 							<input type="text" class="form-control" name="quantity" id="quantity" placeholder="{tr}Quantity{/tr}" style="width:6em" />
 						</div>
+						<div class="form-group">
+							<select class="form-control" name="qty_mode" id="qty_mode" style="width:9em">
+								<option value="base">{tr}g/ml{/tr}</option>
+							</select>
+						</div>
 						<button type="submit" class="btn btn-primary" name="fAddComponent" value="1">{tr}Add{/tr}</button>
 					</div>
 					{formhelp note="Type to search existing components, or enter a new title to create one. Adding a line returns you straight here, ready for the next one."}
@@ -107,8 +112,18 @@
 <script>
 (function($) {
 	var timer;
-	var $input = $('#component_title');
-	var $dd    = $('#comp_dropdown');
+	var $input   = $('#component_title');
+	var $dd      = $('#comp_dropdown');
+	var $qtyMode = $('#qty_mode');
+
+	function setQtyModeOptions(quantityItem, hasSgl) {
+		var unitLabel = quantityItem === 'VOL' ? 'ml' : (quantityItem === 'WT' ? 'g' : 'g/ml');
+		$qtyMode.empty();
+		$qtyMode.append($('<option>').val('base').text(unitLabel));
+		if (hasSgl) {
+			$qtyMode.append($('<option>').val('sgl').text('x (count)'));
+		}
+	}
 
 	$input.trigger('focus');
 
@@ -116,13 +131,18 @@
 		var q = $(this).val();
 		clearTimeout(timer);
 		$dd.hide().empty();
+		// Manual retyping invalidates whatever component was previously selected —
+		// same reasoning as add_assembly_item.tpl's component_id invalidation —
+		// so a stale unit label can't silently survive a hand-edit.
+		setQtyModeOptions(null, false);
 		if (q.length < 2) return;
 		timer = setTimeout(function() {
 			$.getJSON('{$smarty.const.FOOD_PKG_URL}includes/lookup_component.php', {ldelim}q: q{rdelim}, function(data) {
 				if (!data.length) return;
 				$.each(data, function(i, row) {
 					$dd.append($('<li>').append(
-						$('<a>').attr('href','#').data('title', row.title).text(row.title)
+						$('<a>').attr('href','#').data('title', row.title)
+							.data('quantity-item', row.quantity_item).data('has-sgl', row.has_sgl).text(row.title)
 					));
 				});
 				$dd.show();
@@ -133,6 +153,7 @@
 	$(document).on('mousedown', '#comp_dropdown a', function(e) {
 		e.preventDefault();
 		$input.val($(this).data('title'));
+		setQtyModeOptions($(this).data('quantity-item'), $(this).data('has-sgl'));
 		$dd.hide().empty();
 		$('#quantity').trigger('focus');
 	});

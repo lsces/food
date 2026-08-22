@@ -24,13 +24,22 @@ if( $find !== '' ) {
 	$bindVars[] = '%'.strtoupper( $find ).'%';
 }
 
+// SGL/WT/VOL redesign (2026-08-22) — see Claude memory project_food_package_scoping's
+// "SGL/WT/VOL pantry-display redesign" entry. SGL is no longer a competing quantity
+// type, it's an independent display-mode flag: SGL-flagged components show REM as a
+// derived count (REM ÷ their own WT/VOL value, e.g. "8x"), everything else shows REM
+// directly as g/ml. base_value pulled raw (not CAST in SQL) since a WT/VOL row can
+// legitimately have a NULL xkey ("tracked by weight, real figure never entered") —
+// validated numeric in PHP rather than risking a Firebird CAST error on that gap.
 $X = BIT_DB_PREFIX;
 $rows = $gBitDb->getAll(
 	"SELECT lc.`content_id`, lc.`title`, CAST(rem.`xkey` AS DOUBLE PRECISION) AS quantity,
-			(SELECT FIRST 1 t.`item` FROM `{$X}liberty_xref` t
-			 WHERE t.`content_id` = lc.`content_id` AND t.`item` IN ('SGL','WT','VOL')) AS quantity_item
+			base.`item` AS base_item, base.`xkey` AS base_value_raw,
+			(SELECT FIRST 1 1 FROM `{$X}liberty_xref` s
+			 WHERE s.`content_id` = lc.`content_id` AND s.`item` = 'SGL') AS has_sgl
 		FROM `{$X}liberty_content` lc
 		JOIN `{$X}liberty_xref` rem ON ( rem.`content_id` = lc.`content_id` AND rem.`item` = 'REM' )
+		LEFT JOIN `{$X}liberty_xref` base ON ( base.`content_id` = lc.`content_id` AND base.`item` IN ('WT','VOL') )
 	 WHERE lc.`content_type_guid` = 'foodcomponent'
 	   AND rem.`xkey` SIMILAR TO '[0-9]+([.][0-9]+)?' AND CAST(rem.`xkey` AS DOUBLE PRECISION) > 0
 	   $findSql
@@ -38,7 +47,19 @@ $rows = $gBitDb->getAll(
 	$bindVars
 );
 foreach( $rows as &$row ) {
-	$row['quantity_unit'] = match( $row['quantity_item'] ) { 'WT' => 'g', 'VOL' => 'ml', default => '' };
+	$baseValue = is_numeric( $row['base_value_raw'] ?? null ) ? (float)$row['base_value_raw'] : null;
+	if( !empty( $row['has_sgl'] ) && $baseValue > 0 ) {
+		$count = $row['quantity'] / $baseValue;
+		$countStr = number_format( $count, 1, '.', '' );
+		if( str_ends_with( $countStr, '.0' ) ) {
+			$countStr = substr( $countStr, 0, -2 );
+		}
+		$row['display_quantity'] = $countStr;
+		$row['display_unit']     = 'x';
+	} else {
+		$row['display_quantity'] = $row['quantity'];
+		$row['display_unit']     = match( $row['base_item'] ) { 'WT' => 'g', 'VOL' => 'ml', default => '' };
+	}
 	$urlHash = [ 'content_id' => $row['content_id'] ];
 	$row['display_url'] = FoodComponent::getDisplayUrlFromHash( $urlHash );
 }

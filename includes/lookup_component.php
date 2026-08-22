@@ -40,6 +40,12 @@ if( strlen( $q ) < 2 ) {
 // (WT with a NULL xkey just means "tracked by weight, real figure not entered
 // yet", nothing to default from). Lets add_assembly_item.tpl prefill Quantity
 // on selection rather than making every add start from a blank field.
+//
+// quantity_item/has_sgl (added 2026-08-22 for the SGL/WT/VOL pantry redesign):
+// consumed by edit_movement.tpl to build its per-line entry-mode picker (direct
+// weight/volume vs. a converted count) — see FoodMovement::addComponentLine()'s
+// docblock for the two-mode design. Harmless extra fields for add_assembly_item.tpl,
+// which ignores them.
 $rows = $gBitDb->getArray(
 	"SELECT FIRST 30 lc.content_id, lc.title,
 			( SELECT FIRST 1 sup.title FROM liberty_xref x
@@ -48,7 +54,11 @@ $rows = $gBitDb->getArray(
 			( SELECT FIRST 1 u.xkey FROM liberty_xref u
 			  WHERE u.content_id = lc.content_id AND u.item IN ('WT','VOL')
 			    AND u.xkey IS NOT NULL AND u.xkey <> ''
-			  ORDER BY CASE u.item WHEN 'VOL' THEN 0 ELSE 1 END ) AS default_qty
+			  ORDER BY CASE u.item WHEN 'VOL' THEN 0 ELSE 1 END ) AS default_qty,
+			( SELECT FIRST 1 t.item FROM liberty_xref t
+			  WHERE t.content_id = lc.content_id AND t.item IN ('WT','VOL') ) AS quantity_item,
+			( SELECT FIRST 1 1 FROM liberty_xref s
+			  WHERE s.content_id = lc.content_id AND s.item = 'SGL' ) AS has_sgl
 	 FROM liberty_content lc
 	 WHERE lc.content_type_guid=? AND LOWER(lc.title) LIKE ?
 	 ORDER BY lc.title",

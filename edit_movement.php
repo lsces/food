@@ -73,6 +73,7 @@ if( !empty( $_REQUEST['save'] ) ) {
 } elseif( !empty( $_REQUEST['fAddComponent'] ) && $gContent->isValid() ) {
 	$title = trim( $_REQUEST['component_title'] ?? '' );
 	$qty   = trim( $_REQUEST['quantity'] ?? '' );
+	$mode  = ( $_REQUEST['qty_mode'] ?? 'base' ) === 'sgl' ? 'sgl' : 'base';
 
 	if( $title === '' ) {
 		$addErrors[] = KernelTools::tra( 'Component title is required.' );
@@ -92,7 +93,7 @@ if( !empty( $_REQUEST['save'] ) ) {
 			die;
 		}
 
-		if( $gContent->addComponentLine( $compId, (float)$qty ) ) {
+		if( $gContent->addComponentLine( $compId, (float)$qty, $mode ) ) {
 			header( 'Location: '.FOOD_PKG_URL.'edit_movement.php?content_id='.$gContent->mContentId.'#add-component' );
 			die;
 		}

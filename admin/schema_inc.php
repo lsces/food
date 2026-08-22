@@ -165,16 +165,22 @@ $xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,
 // entirely separate from the nutrition group above. Modeled on Stock's SGL/PCK/SHT/VOL
 // (stock_component quantity group), adapted for food: SHT (sheet-cutting, PCB-specific)
 // doesn't apply here; WT (weight) is new, no food-related use has come up in Stock
-// itself yet either. A component declares ONE of SGL/WT/VOL as its own tracking type —
-// enforced as of 2026-08-18 via multiple=-2 (mutually exclusive within this group, see
-// liberty/MANUAL.md's Data model section): storing any one of the three evicts the
-// other two for that component. PCK is NOT a competing type (mirrors Stock's own
-// template='value' distinction), it's a stored pack-size multiplier feeding into
-// whichever type the component actually uses (e.g. eggs: PCK=6 feeding SGL; cereal:
-// PCK≈500 feeding WT) — stays multiple=0, not part of the exclusive set.
+// itself yet either.
+//
+// REDESIGNED 2026-08-21/22 (see Claude memory project_food_package_scoping's
+// "SGL/WT/VOL pantry-display redesign" entry for the full reasoning): WT/VOL stay
+// mutually exclusive between themselves (multiple=-2, a component is weight-tracked
+// or volume-tracked, never both), but SGL is no longer a competing third type —
+// changed to multiple=0, a genuinely independent flag that can coexist alongside
+// whichever of WT/VOL the component actually declares. Every component is now
+// expected to carry a real WT or VOL value (a component's own weight/volume per
+// pantry unit); SGL just switches list_pantry.php's display from raw g/ml to a
+// derived REM÷(WT or VOL) count. PCK (pack-size multiplier) is redundant under this
+// design — WT/VOL itself always holds the real divisor now — left in the schema
+// as an inert leftover rather than ripped out, nothing reads it.
 $xrefTypes[] = "INSERT INTO `{$X}liberty_xref_group` (`x_group`,`content_type_guid`,`title`,`sort_order`,`role_id`,`type_href`,`template`) VALUES ('quantity','foodcomponent','Quantity',1,3,'','')";
 
-$xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('SGL','foodcomponent','quantity','Single unit (count)', -2,3,'','text', NULL)";
+$xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('SGL','foodcomponent','quantity','Single unit (count)',  0,3,'','text', NULL)";
 $xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('WT', 'foodcomponent','quantity','Weight (g)',           -2,3,'','text', NULL)";
 $xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('VOL','foodcomponent','quantity','Volume (ml)',          -2,3,'','text', NULL)";
 $xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('PCK','foodcomponent','quantity','Pack size',            0,3,'','value',NULL)";

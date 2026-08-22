@@ -188,7 +188,8 @@ class FoodMovement extends LibertyContent {
 		if( $this->isValid() ) {
 			$this->StartTrans();
 			foreach( $this->getLines() as $line ) {
-				$this->adjustComponentRem( (int)$line['component_content_id'], -(float)$line['quantity'] );
+				$delta = $this->resolveRemDelta( $line['item'], (float)$line['quantity'], (int)$line['component_content_id'] );
+				$this->adjustComponentRem( (int)$line['component_content_id'], -$delta );
 			}
 			if( LibertyContent::expunge() ) {
 				$this->CompleteTrans();
@@ -243,26 +244,59 @@ class FoodMovement extends LibertyContent {
 	 * (see class docblock — REM is stored/mutable, nothing recomputes it from
 	 * movement history the way Stock's list_stock.php does).
 	 *
-	 * @param  int   $pComponentContentId
-	 * @param  float $pQuantity  In the component's own declared unit — resolved
-	 *                           here from the component's own quantity group
-	 *                           (SGL/WT/VOL), not passed by the caller.
+	 * Per-line entry mode (2026-08-22 SGL/WT/VOL redesign — see Claude memory
+	 * project_food_package_scoping's "SGL/WT/VOL pantry-display redesign" entry):
+	 * a component now always has a real WT-or-VOL weight/volume declared, and
+	 * *separately* may be flagged SGL (a display switch, not a competing type —
+	 * see admin/schema_inc.php). Two entry modes follow from that:
+	 * - 'base' (default): $pQuantity IS the real weight/volume, stored under the
+	 *   component's own WT/VOL item code, added straight to REM — no conversion,
+	 *   no drift risk (e.g. Strawberries: type the real 400g).
+	 * - 'sgl': $pQuantity is a count (a multi-pack), stored under item='SGL',
+	 *   converted through the component's *current* declared WT/VOL value before
+	 *   touching REM (e.g. "8" ice cream sandwiches × Gelatelli's WT=52 → +416g).
+	 *   Only valid if the component is actually SGL-flagged and has a real WT/VOL
+	 *   value to convert through.
+	 *
+	 * @param  int    $pComponentContentId
+	 * @param  float  $pQuantity  In the chosen mode's own unit (see above).
+	 * @param  string $pMode      'base' or 'sgl'.
 	 * @return bool  FALSE if the movement/component id is invalid, the quantity
-	 *               isn't positive, or the component has no declared quantity
-	 *               type to record against (see $this->mErrors).
+	 *               isn't positive, or the mode can't be resolved against the
+	 *               component's current quantity data (see $this->mErrors).
 	 */
-	public function addComponentLine( int $pComponentContentId, float $pQuantity ): bool {
+	public function addComponentLine( int $pComponentContentId, float $pQuantity, string $pMode = 'base' ): bool {
 		if( !$this->isValid() || !$this->verifyId( $pComponentContentId ) || $pQuantity <= 0 ) {
 			return false;
 		}
-		$qtyItem = $this->mDb->getOne(
-			"SELECT `item` FROM `".BIT_DB_PREFIX."liberty_xref`
-			 WHERE `content_id` = ? AND `item` IN ('SGL','WT','VOL')",
+		$baseRow = $this->mDb->getRow(
+			"SELECT `item`, `xkey` FROM `".BIT_DB_PREFIX."liberty_xref`
+			 WHERE `content_id` = ? AND `item` IN ('WT','VOL')",
 			[ $pComponentContentId ]
 		);
-		if( !$qtyItem ) {
-			$this->mErrors['component'] = 'This component has no declared quantity type (SGL/WT/VOL) — set one on the component first.';
-			return false;
+
+		if( $pMode === 'sgl' ) {
+			$hasSgl = (bool)$this->mDb->getOne(
+				"SELECT 1 FROM `".BIT_DB_PREFIX."liberty_xref` WHERE `content_id` = ? AND `item` = 'SGL'",
+				[ $pComponentContentId ]
+			);
+			if( !$hasSgl ) {
+				$this->mErrors['component'] = 'This component is not flagged for count-based (SGL) tracking.';
+				return false;
+			}
+			if( !$baseRow || !is_numeric( $baseRow['xkey'] ?? null ) ) {
+				$this->mErrors['component'] = 'This component has no declared weight/volume (WT/VOL) to convert a count through.';
+				return false;
+			}
+			$qtyItem  = 'SGL';
+			$remDelta = $pQuantity * (float)$baseRow['xkey'];
+		} else {
+			if( !$baseRow ) {
+				$this->mErrors['component'] = 'This component has no declared quantity type (WT/VOL) — set one on the component first.';
+				return false;
+			}
+			$qtyItem  = $baseRow['item'];
+			$remDelta = $pQuantity;
 		}
 
 		$nextXorder = (int)$this->mDb->getOne(
@@ -281,12 +315,36 @@ class FoodMovement extends LibertyContent {
 		];
 		$ok = $this->storeXref( $lineHash );
 		if( $ok ) {
-			$this->adjustComponentRem( $pComponentContentId, $pQuantity );
+			$this->adjustComponentRem( $pComponentContentId, $remDelta );
 			$this->CompleteTrans();
 		} else {
 			$this->mDb->RollbackTrans();
 		}
 		return $ok;
+	}
+
+	/**
+	 * The REM delta a quantity-line's own stored xkey represents, resolving SGL
+	 * (count) lines through the component's *current* declared WT/VOL value —
+	 * shared by removeComponentLine()/expunge() so both reverse a receipt exactly
+	 * the way addComponentLine() would compute it fresh today (see the class
+	 * docblock's note on why reversal is a recompute, not a frozen snapshot).
+	 *
+	 * @param  string $pItem                'SGL', 'WT', or 'VOL'.
+	 * @param  float  $pXkey                The line's own stored quantity.
+	 * @param  int    $pComponentContentId
+	 * @return float
+	 */
+	private function resolveRemDelta( string $pItem, float $pXkey, int $pComponentContentId ): float {
+		if( $pItem !== 'SGL' ) {
+			return $pXkey;
+		}
+		$baseValue = $this->mDb->getOne(
+			"SELECT `xkey` FROM `".BIT_DB_PREFIX."liberty_xref`
+			 WHERE `content_id` = ? AND `item` IN ('WT','VOL')",
+			[ $pComponentContentId ]
+		);
+		return $pXkey * (float)$baseValue;
 	}
 
 	/**
@@ -303,7 +361,7 @@ class FoodMovement extends LibertyContent {
 	 */
 	public function removeComponentLine( int $pXrefId ): bool {
 		$row = $this->mDb->getRow(
-			"SELECT `xref`, `xkey` FROM `".BIT_DB_PREFIX."liberty_xref` WHERE `xref_id` = ? AND `content_id` = ?",
+			"SELECT `item`, `xref`, `xkey` FROM `".BIT_DB_PREFIX."liberty_xref` WHERE `xref_id` = ? AND `content_id` = ?",
 			[ $pXrefId, $this->mContentId ]
 		);
 		if( !$row ) {
@@ -313,7 +371,8 @@ class FoodMovement extends LibertyContent {
 		$pHash = [ 'xref_id' => $pXrefId, 'expunge' => 1 ];
 		$ok = $this->stepXref( $pHash );
 		if( $ok ) {
-			$this->adjustComponentRem( (int)$row['xref'], -(float)$row['xkey'] );
+			$delta = $this->resolveRemDelta( $row['item'], (float)$row['xkey'], (int)$row['xref'] );
+			$this->adjustComponentRem( (int)$row['xref'], -$delta );
 			$this->CompleteTrans();
 		} else {
 			$this->mDb->RollbackTrans();
@@ -377,7 +436,7 @@ class FoodMovement extends LibertyContent {
 			[ $this->mContentId ]
 		);
 		foreach( $rows as &$row ) {
-			$row['quantity_unit'] = match( $row['item'] ) { 'WT' => 'g', 'VOL' => 'ml', default => '' };
+			$row['quantity_unit'] = match( $row['item'] ) { 'WT' => 'g', 'VOL' => 'ml', 'SGL' => 'x', default => '' };
 			$urlHash = [ 'content_id' => $row['component_content_id'] ];
 			$row['component_display_url'] = FoodComponent::getDisplayUrlFromHash( $urlHash );
 		}
