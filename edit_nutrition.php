@@ -47,6 +47,24 @@ if( !$gContent->isValid() ) {
 }
 $gContent->verifyUpdatePermission();
 
+// mg<->g conversion helpers — the base values are stored as integer mg (see
+// MANUAL.md's nutrition section), but every mass field here is small enough
+// that mg-entry meant typing e.g. "3310" for a label that says "3.31g".
+// 'gramEntry' flags which fields go through this; CAL (kcal, not a mass) and
+// 5AD (a decimal adjustment factor, not a mass at all) never did and still
+// don't. SOD already had its own gram-entry path (salt, converted via ÷2.5 —
+// a different quantity, not just a decimal shift) and is untouched here.
+function foodMgToG( $pMg ) {
+	if( $pMg === null || $pMg === '' || !is_numeric( $pMg ) ) {
+		return '';
+	}
+	$g = (float)$pMg / 1000;
+	return rtrim( rtrim( number_format( $g, 3, '.', '' ), '0' ), '.' );
+}
+function foodGToMg( $pG ) {
+	return (string)(int)round( (float)$pG * 1000 );
+}
+
 // Ordered to match the UK nutrition-label layout Lester copies figures from:
 // Calories, Fat (total/saturated), Carbohydrate, Sugar, Fibre, Protein, Salt.
 // 'kind' drives which input(s) the template renders — 'scalar' is a plain
@@ -55,14 +73,14 @@ $gContent->verifyUpdatePermission();
 // out entirely — they already have a working combined edit via their own
 // json-list template, this page isn't trying to replace that.
 $scalarFields = [
-	'CAL'  => [ 'kind' => 'scalar', 'label' => 'Calories',     'suffix' => 'kcal' ],
+	'CAL'  => [ 'kind' => 'scalar', 'label' => 'Calories',     'suffix' => 'kcal', 'gramEntry' => false ],
 	'FAT'  => [ 'kind' => 'fat' ],
-	'CARB' => [ 'kind' => 'scalar', 'label' => 'Carbohydrate', 'suffix' => 'mg' ],
-	'SUGR' => [ 'kind' => 'scalar', 'label' => 'Sugar',        'suffix' => 'mg' ],
-	'FIBR' => [ 'kind' => 'scalar', 'label' => 'Fibre',        'suffix' => 'mg' ],
-	'PROT' => [ 'kind' => 'scalar', 'label' => 'Protein',      'suffix' => 'mg' ],
+	'CARB' => [ 'kind' => 'scalar', 'label' => 'Carbohydrate', 'suffix' => 'g',    'gramEntry' => true ],
+	'SUGR' => [ 'kind' => 'scalar', 'label' => 'Sugar',        'suffix' => 'g',    'gramEntry' => true ],
+	'FIBR' => [ 'kind' => 'scalar', 'label' => 'Fibre',        'suffix' => 'g',    'gramEntry' => true ],
+	'PROT' => [ 'kind' => 'scalar', 'label' => 'Protein',      'suffix' => 'g',    'gramEntry' => true ],
 	'SOD'  => [ 'kind' => 'salt' ],
-	'5AD'  => [ 'kind' => 'scalar', 'label' => 'Five-a-day (adjustment factor, true_portion_g/80)', 'suffix' => '' ],
+	'5AD'  => [ 'kind' => 'scalar', 'label' => 'Five-a-day (adjustment factor, true_portion_g/80)', 'suffix' => '', 'gramEntry' => false ],
 ];
 
 $existing = [];
@@ -76,12 +94,24 @@ foreach( $gBitDb->getAll(
 
 // Pre-fill the two FAT sub-fields this page exposes from whatever's already
 // stored — the blob may also hold mono_mg/poly_mg/trans_mg/cholesterol_mg,
-// untouched by this page (see the save-side merge below).
-$existingFat = [ 'total_mg' => '', 'saturated_mg' => '' ];
+// untouched by this page (see the save-side merge below). Displayed as grams,
+// same as every other mass field on this page.
+$existingFat = [ 'total_g' => '', 'saturated_g' => '' ];
 if( !empty( $existing['FAT']['data'] ) ) {
 	$fatData = json_decode( $existing['FAT']['data'], true ) ?: [];
-	if( isset( $fatData['total_mg'] ) )     { $existingFat['total_mg']     = $fatData['total_mg']; }
-	if( isset( $fatData['saturated_mg'] ) ) { $existingFat['saturated_mg'] = $fatData['saturated_mg']; }
+	if( isset( $fatData['total_mg'] ) )     { $existingFat['total_g']     = foodMgToG( $fatData['total_mg'] ); }
+	if( isset( $fatData['saturated_mg'] ) ) { $existingFat['saturated_g'] = foodMgToG( $fatData['saturated_mg'] ); }
+}
+
+// Same conversion for the plain scalar mass fields — CAL/5AD pass through
+// unconverted (see the 'gramEntry' flag above).
+$displayValues = [];
+foreach( $scalarFields as $item => $meta ) {
+	if( $meta['kind'] !== 'scalar' ) {
+		continue;
+	}
+	$raw = $existing[$item]['xkey'] ?? '';
+	$displayValues[$item] = ( !empty( $meta['gramEntry'] ) && $raw !== '' ) ? foodMgToG( $raw ) : $raw;
 }
 
 if( !empty( $_REQUEST['fCancel'] ) ) {
@@ -101,7 +131,8 @@ if( !empty( $_REQUEST['fSaveNutrition'] ) ) {
 			// wasn't given a new value for.
 			continue;
 		}
-		$pHash = [ 'content_id' => $gContent->mContentId, 'item' => $item, 'xkey' => $val ];
+		$storeVal = !empty( $meta['gramEntry'] ) ? foodGToMg( $val ) : $val;
+		$pHash = [ 'content_id' => $gContent->mContentId, 'item' => $item, 'xkey' => $storeVal ];
 		if( isset( $existing[$item] ) ) {
 			$pHash['xref_id'] = $existing[$item]['xref_id'];
 		} else {
@@ -114,17 +145,17 @@ if( !empty( $_REQUEST['fSaveNutrition'] ) ) {
 	// FAT — total_mg/saturated_mg merged into whatever's already stored, rather
 	// than replacing the whole blob (this page doesn't expose mono_mg/poly_mg/
 	// trans_mg/cholesterol_mg — those stay as-is, edited via FAT's own row-level
-	// json-list edit on the Nutrition tab instead). Same raw-mg convention as
-	// every other scalar on this page.
+	// json-list edit on the Nutrition tab instead). Entered as grams, same as
+	// every other mass field on this page — converted back to mg for storage.
 	$fatTotal = trim( (string)( $_REQUEST['fat_total'] ?? '' ) );
 	$fatSat   = trim( (string)( $_REQUEST['fat_saturated'] ?? '' ) );
 	if( $fatTotal !== '' || $fatSat !== '' ) {
 		$fatData = !empty( $existing['FAT']['data'] ) ? ( json_decode( $existing['FAT']['data'], true ) ?: [] ) : [];
 		if( $fatTotal !== '' && is_numeric( $fatTotal ) ) {
-			$fatData['total_mg'] = $fatTotal + 0;
+			$fatData['total_mg'] = (int)foodGToMg( $fatTotal );
 		}
 		if( $fatSat !== '' && is_numeric( $fatSat ) ) {
-			$fatData['saturated_mg'] = $fatSat + 0;
+			$fatData['saturated_mg'] = (int)foodGToMg( $fatSat );
 		}
 		$pHash = [ 'content_id' => $gContent->mContentId, 'item' => 'FAT', 'edit' => json_encode( (object)$fatData ) ];
 		if( isset( $existing['FAT'] ) ) {
@@ -172,5 +203,6 @@ $gBitSmarty->assign( 'gContent',      $gContent );
 $gBitSmarty->assign( 'scalarFields',  $scalarFields );
 $gBitSmarty->assign( 'existing',      $existing );
 $gBitSmarty->assign( 'existingFat',   $existingFat );
+$gBitSmarty->assign( 'displayValues', $displayValues );
 
 $gBitSystem->display( 'bitpackage:food/edit_nutrition.tpl', KernelTools::tra( 'Edit Nutrition' ).': '.$gContent->getTitle(), [ 'display_mode' => 'edit' ] );

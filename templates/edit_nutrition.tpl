@@ -14,21 +14,21 @@
 						{formlabel label=$meta.label for="val_`$item`"}
 						{forminput}
 							<input type="text" class="form-control input-small" name="val_{$item}" id="val_{$item}"
-								value="{$existing[$item].xkey|default:''|escape}" />
+								value="{$displayValues[$item]|default:''|escape}" />
 							{if $meta.suffix} <span class="help-inline">{$meta.suffix}</span>{/if}
 						{/forminput}
 					</div>
 				{elseif $meta.kind eq 'fat'}
 					<div class="form-group">
-						{formlabel label="Fat, total (mg)" for="fat_total"}
+						{formlabel label="Fat, total (g)" for="fat_total"}
 						{forminput}
-							<input type="text" class="form-control input-small" name="fat_total" id="fat_total" value="{$existingFat.total_mg|escape}" />
+							<input type="text" class="form-control input-small" name="fat_total" id="fat_total" value="{$existingFat.total_g|escape}" />
 						{/forminput}
 					</div>
 					<div class="form-group">
-						{formlabel label="Fat, saturated (mg)" for="fat_saturated"}
+						{formlabel label="Fat, saturated (g)" for="fat_saturated"}
 						{forminput}
-							<input type="text" class="form-control input-small" name="fat_saturated" id="fat_saturated" value="{$existingFat.saturated_mg|escape}" />
+							<input type="text" class="form-control input-small" name="fat_saturated" id="fat_saturated" value="{$existingFat.saturated_g|escape}" />
 							{formhelp note="Mono/poly/trans fat and cholesterol aren't edited here — use the Fat row's own Edit link on the Nutrition tab for those."}
 						{/forminput}
 					</div>
