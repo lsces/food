@@ -24,6 +24,17 @@ if( $find !== '' ) {
 	$bindVars[] = '%'.strtoupper( $find ).'%';
 }
 
+// Shop filter — same 'sup' param / SUP-xref join as list_components.php's own filter.
+$supId = !empty( $_REQUEST['sup'] ) ? (int)$_REQUEST['sup'] : 0;
+$supSql = '';
+if( $supId ) {
+	$supSql = " AND EXISTS (
+		SELECT 1 FROM `".BIT_DB_PREFIX."liberty_xref` sx
+		WHERE sx.`content_id` = lc.`content_id` AND sx.`item` = 'SUP' AND sx.`xref` = ?
+	)";
+	$bindVars[] = $supId;
+}
+
 // SGL/WT/VOL redesign (2026-08-22) — see Claude memory project_food_package_scoping's
 // "SGL/WT/VOL pantry-display redesign" entry. SGL is no longer a competing quantity
 // type, it's an independent display-mode flag: SGL-flagged components show REM as a
@@ -43,13 +54,17 @@ $rows = $gBitDb->getAll(
 			(SELECT FIRST 1 1 FROM `{$X}liberty_xref` s
 			 WHERE s.`content_id` = lc.`content_id` AND s.`item` = 'SGL') AS has_sgl,
 			(SELECT FIRST 1 s.`xkey_ext` FROM `{$X}liberty_xref` s
-			 WHERE s.`content_id` = lc.`content_id` AND s.`item` = 'SGL') AS sgl_note
+			 WHERE s.`content_id` = lc.`content_id` AND s.`item` = 'SGL') AS sgl_note,
+			(SELECT FIRST 1 shop.`title` FROM `{$X}liberty_xref` sx
+			 INNER JOIN `{$X}liberty_content` shop ON ( shop.`content_id` = sx.`xref` )
+			 WHERE sx.`content_id` = lc.`content_id` AND sx.`item` = 'SUP') AS supplier_title
 		FROM `{$X}liberty_content` lc
 		JOIN `{$X}liberty_xref` rem ON ( rem.`content_id` = lc.`content_id` AND rem.`item` = 'REM' )
 		LEFT JOIN `{$X}liberty_xref` base ON ( base.`content_id` = lc.`content_id` AND base.`item` IN ('WT','VOL') )
 	 WHERE lc.`content_type_guid` = 'foodcomponent'
 	   AND rem.`xkey` SIMILAR TO '[0-9]+([.][0-9]+)?' AND CAST(rem.`xkey` AS DOUBLE PRECISION) > 0
 	   $findSql
+	   $supSql
 	 ORDER BY lc.`title`",
 	$bindVars
 );
@@ -75,6 +90,16 @@ unset( $row );
 
 $gBitSmarty->assign( 'pantryList', $rows );
 $gBitSmarty->assign( 'find',       $find );
+
+// Shop filter dropdown — same shops query as list_components.php/edit_movement.php's own.
+$shops = $gBitDb->getAll(
+	"SELECT lc.`content_id`, lc.`title` FROM `".BIT_DB_PREFIX."liberty_content` lc
+		JOIN `".BIT_DB_PREFIX."liberty_xref` lx ON ( lx.`content_id` = lc.`content_id` AND lx.`item` = 'B04' )
+	 WHERE lc.`content_type_guid` = 'contactbusiness'
+	 ORDER BY lc.`title`"
+);
+$gBitSmarty->assign( 'shops',        $shops );
+$gBitSmarty->assign( 'selectedShop', $supId );
 
 $gBitSmarty->assign( 'gDefaultCenter', 'bitpackage:food/list_pantry.tpl' );
 $gBitSystem->display( 'bitpackage:kernel/dynamic.tpl', 'Pantry', [ 'display_mode' => 'list' ] );
