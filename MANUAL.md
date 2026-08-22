@@ -209,8 +209,11 @@ transaction —
 - **`removeComponentLine(xrefId)`** / **`updateComponentLine(xrefId, newQuantity)`** — both
   reverse/recompute through the same `resolveRemDelta()` helper (SGL-mode lines convert via the
   component's *current* `WT`/`VOL` value, not a frozen snapshot at add-time — accepted tradeoff).
-  `removeComponentLine()` archives via `stepXref()`/`expunge=1` (history-preserving); the line
-  quantity-edit form on `edit_movement.php` is a genuine in-place correction, not a remove+re-add.
+  `removeComponentLine()` hard-deletes via `stepXref()`/`expunge=3`, gated behind
+  `verifyExpungePermission()` (`p_food_expunge`) — a mis-entered line should actually go away, not
+  sit in the item's History tab; `getLines()`'s own query also filters `end_date IS NULL` as a
+  second, independent safeguard. The line quantity-edit form on `edit_movement.php` is a genuine
+  in-place correction, not a remove+re-add.
 - **`expunge()`** walks every line and reverses each one's `REM` contribution individually before
   deleting the content record — there's no bulk shortcut, since each line might resolve to a
   different delta (`base` vs `sgl` mode).

@@ -352,9 +352,14 @@ class FoodMovement extends LibertyContent {
 	 * companion to addComponentLine(), needed because liberty's generic
 	 * edit_xref.php delete path knows nothing about the REM side-effect (same
 	 * reasoning as why addComponentLine() exists instead of a generic add_xref.php
-	 * form for this group). Archives the row via stepXref() (expunge=1) rather
-	 * than a hard delete, same history-preserving convention every other xref
-	 * removal in this codebase uses.
+	 * form for this group). Hard-deletes the row via stepXref() (expunge=3), not
+	 * an archive — a mis-entered receipt line (wrong quantity type, duplicate,
+	 * typo) should actually go away, not linger in the item's History tab forever
+	 * (switched from expunge=1 archive 2026-08-22 after the archive behaviour
+	 * silently left the line showing in edit_movement.php's own line list — see
+	 * getLines()'s end_date filter, added same day as a second, independent fix).
+	 * Caller must gate this behind expunge permission, not just update — see
+	 * edit_movement.php's remove_xref_id branch.
 	 *
 	 * @param  int $pXrefId
 	 * @return bool  FALSE if no such line exists on this movement.
@@ -368,7 +373,7 @@ class FoodMovement extends LibertyContent {
 			return false;
 		}
 		$this->StartTrans();
-		$pHash = [ 'xref_id' => $pXrefId, 'expunge' => 1 ];
+		$pHash = [ 'xref_id' => $pXrefId, 'expunge' => 3 ];
 		$ok = $this->stepXref( $pHash );
 		if( $ok ) {
 			$delta = $this->resolveRemDelta( $row['item'], (float)$row['xkey'], (int)$row['xref'] );
@@ -477,6 +482,7 @@ class FoodMovement extends LibertyContent {
 				FROM `".BIT_DB_PREFIX."liberty_xref` x
 				JOIN `".BIT_DB_PREFIX."liberty_content` lc ON ( lc.`content_id` = x.`xref` )
 				WHERE x.`content_id` = ? AND x.`item` IN ('".implode( "','", self::QUANTITY_ITEMS )."')
+				  AND x.`end_date` IS NULL
 				ORDER BY x.`xorder`",
 			[ $this->mContentId ]
 		);

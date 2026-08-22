@@ -115,6 +115,10 @@ if( !empty( $_REQUEST['save'] ) ) {
 	}
 
 } elseif( !empty( $_REQUEST['remove_xref_id'] ) && $gContent->isValid() ) {
+	// Hard-deletes the line (see FoodMovement::removeComponentLine()) — gate on
+	// expunge permission, not just the update permission the page load already
+	// checked, matching liberty's own convention for expunge=3.
+	$gContent->verifyExpungePermission();
 	$gContent->removeComponentLine( (int)$_REQUEST['remove_xref_id'] );
 	header( 'Location: '.FOOD_PKG_URL.'edit_movement.php?content_id='.$gContent->mContentId.'#add-component' );
 	die;
