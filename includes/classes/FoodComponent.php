@@ -567,15 +567,27 @@ class FoodComponent extends LibertyContent {
 	}
 
 	/**
-	 * >=1000mg switches to grams (1500 -> "1.5g"), otherwise plain rounded mg
-	 * (250 -> "250mg"). Only for genuine mg-mass values — see NUTRITION_SUMMARY_FIELDS'
-	 * 'mass' flag; CAL (kcal, not a mass) must never be passed through this.
+	 * Milligrams -> grams as a bare numeric string, no unit suffix (3 decimal
+	 * places, trailing zeros trimmed) — e.g. 17300 -> "17.3", 800 -> "0.8",
+	 * 45 -> "0.045". Shared by formatMg() (adds 'g' for display) and
+	 * edit_nutrition.php's own form-value conversion — same rounding either
+	 * side of a save round-trip, one place to get it right.
+	 */
+	public static function mgToG( $pMg ): string {
+		$str = rtrim( rtrim( number_format( (float)$pMg / 1000, 3, '.', '' ), '0' ), '.' );
+		return $str === '' ? '0' : $str;
+	}
+
+	/**
+	 * Always grams, never a mixed mg/g display (was ">=1000mg switches to
+	 * grams, otherwise plain mg" — inconsistent with edit_nutrition.php's
+	 * gram-only entry convention, and a genuinely small value like 45mg
+	 * sodium showing as "45mg" while everything else on the same label reads
+	 * in grams was the actual "this needs tidying" complaint). Only for
+	 * genuine mg-mass values — see NUTRITION_SUMMARY_FIELDS' 'format'; CAL
+	 * (kcal, not a mass) must never be passed through this.
 	 */
 	public static function formatMg( $pMg ): string {
-		$mg = (float)$pMg;
-		if( abs( $mg ) >= 1000 ) {
-			return number_format( $mg / 1000, 1 ).'g';
-		}
-		return round( $mg ).'mg';
+		return self::mgToG( $pMg ).'g';
 	}
 }

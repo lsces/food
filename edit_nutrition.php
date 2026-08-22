@@ -58,8 +58,7 @@ function foodMgToG( $pMg ) {
 	if( $pMg === null || $pMg === '' || !is_numeric( $pMg ) ) {
 		return '';
 	}
-	$g = (float)$pMg / 1000;
-	return rtrim( rtrim( number_format( $g, 3, '.', '' ), '0' ), '.' );
+	return FoodComponent::mgToG( $pMg );
 }
 function foodGToMg( $pG ) {
 	return (string)(int)round( (float)$pG * 1000 );
