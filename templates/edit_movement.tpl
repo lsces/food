@@ -71,8 +71,8 @@
 							{form id="qty-{$l.xref_id}" ipackage="food" ifile="edit_movement.php" class="form-inline" style="display:inline"}
 								<input type="hidden" name="content_id" value="{$gContent->mContentId}" />
 								<input type="hidden" name="update_xref_id" value="{$l.xref_id}" />
-								<input type="text" class="form-control input-sm" name="new_quantity" value="{$l.quantity|escape}" style="width:5em;display:inline-block" />{$l.quantity_unit|escape}
-								<button type="submit" class="btn btn-default btn-xs" title="{tr}Save{/tr}">{biticon iname="filesave" iexplain="Save"}</button>
+								<input type="text" class="form-control input-sm" name="new_quantity" value="{$l.quantity|escape}" style="width:5em;display:inline-block" />
+								<button type="submit" class="btn btn-link btn-xs" title="{tr}Save{/tr}">{biticon iname="filesave" iexplain="Save"}</button>{$l.quantity_unit|escape}
 							{/form}
 						</td>
 						<td>
