@@ -59,7 +59,7 @@
 			</tbody>
 		</table>
 
-		<p><a class="btn btn-default" href="add_assembly_item.php?content_id={$gContent->mContentId}">{tr}Add ingredient{/tr}</a></p>
+		<p><a class="btn btn-default" href="add_assembly_item.php?content_id={$gContent->mContentId}">{tr}Add Food Item{/tr}</a></p>
 	</div>
 </div>
 {/strip}

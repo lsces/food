@@ -119,7 +119,7 @@ if( !empty( $_REQUEST['fAddComponent'] ) ) {
 				header( 'Location: '.FOOD_PKG_URL.'edit_assembly.php?content_id='.$gContent->mContentId );
 				die;
 			}
-			$errors[] = KernelTools::tra( 'Failed to store ingredient.' );
+			$errors[] = KernelTools::tra( 'Failed to store food item.' );
 		}
 	}
 }
@@ -129,4 +129,4 @@ $gBitSmarty->assign( 'mealLabel', FoodAssembly::mealTypeLabel( $mealType ?? '' )
 $gBitSmarty->assign( 'errors',    $errors );
 $gBitSmarty->assign( 'lookupUrl', FOOD_PKG_URL.'includes/lookup_component.php' );
 
-$gBitSystem->display( 'bitpackage:food/add_assembly_item.tpl', KernelTools::tra( 'Add Ingredient' ).': '.$gContent->getTitle(), [ 'display_mode' => 'edit' ] );
+$gBitSystem->display( 'bitpackage:food/add_assembly_item.tpl', KernelTools::tra( 'Add Food Item' ).': '.$gContent->getTitle(), [ 'display_mode' => 'edit' ] );

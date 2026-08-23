@@ -1,7 +1,7 @@
 {strip}
 <div class="edit food">
 	<div class="header">
-		<h1>{tr}Add Ingredient{/tr}: {$mealLabel|escape}</h1>
+		<h1>{tr}Add Food Item{/tr}: {$mealLabel|escape}</h1>
 	</div>
 
 	<div class="body">
@@ -36,7 +36,7 @@
 
 			<div class="form-group submit">
 				<input type="submit" class="btn btn-default" name="fCancel" value="{tr}Cancel{/tr}" />
-				<input type="submit" class="btn btn-primary" name="fAddComponent" value="{tr}Add Ingredient{/tr}" />
+				<input type="submit" class="btn btn-primary" name="fAddComponent" value="{tr}Add Food Item{/tr}" />
 			</div>
 		{/form}
 	</div>

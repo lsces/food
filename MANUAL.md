@@ -231,9 +231,11 @@ unfiltered).
 - **"Food Item" in every user-facing string** (page titles, headings, search placeholders, table
   columns, tooltips, form labels, validation errors) — file/class names still say `Component`
   throughout (`list_components.php`, `FoodComponent`), deliberately not renamed to match.
-- **"Ingredient"** is the term used specifically for a food item *within a meal* (`add_assembly_
-  item.php`'s "Add Ingredient" button) — a different, narrower context from the general "Food
-  Item" term, not touched by the 2026-08-22 rename sweep.
+- **"Ingredient"** was briefly kept as a separate term for a food item *within a meal* (`add_
+  assembly_item.php`'s button/heading), deliberately not touched by the 2026-08-22 rename sweep —
+  reconsidered 2026-08-23: that page's button/heading/link now say "Add Food Item" too, for
+  consistency with every other add/edit context. General descriptive text ("ingredient list", "No
+  ingredients recorded") is untouched — this only ever covered the "Add X" naming.
 - Native `<input type="date">`/`<input type="time">` for date/time entry (`copy_assembly.tpl`,
   `view_day.tpl`, `edit_movement.tpl`'s purchase date, `edit_assembly.tpl`'s Time field) — no
   vendored JS date-picker library is actually live anywhere in this codebase despite one sitting
