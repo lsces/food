@@ -110,6 +110,12 @@ if( !empty( $_REQUEST['fAddComponent'] ) ) {
 				'xkey'       => (string)(int)round( (float)$qty ),
 			];
 			if( $xrefObj->store( $pHash ) ) {
+				// Mirrors FoodMovement::adjustComponentRem()'s receipt side — a meal
+				// eating a component should take it out of the pantry balance the
+				// same way a receipt puts it in. Floored at 0 inside
+				// adjustComponentRem() itself, so over-consuming past what's on
+				// record never goes negative.
+				( new FoodMovement() )->adjustComponentRem( $compId, -(float)round( (float)$qty ) );
 				header( 'Location: '.FOOD_PKG_URL.'edit_assembly.php?content_id='.$gContent->mContentId );
 				die;
 			}

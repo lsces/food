@@ -430,13 +430,16 @@ class FoodMovement extends LibertyContent {
 
 	/**
 	 * Add (or subtract, for a negative delta) $pDelta to a FoodComponent's REM
-	 * xref, in place — the one spot that actually writes to the pantry balance
-	 * from the movement side. Creates a REM row at $pDelta if the component
-	 * doesn't have one yet (e.g. first-ever receipt for a component the importer
-	 * never flagged). Only $pDelta and $pComponentContentId's own current xkey are
-	 * touched — any existing xkey_ext (e.g. a still-outstanding REVIEW flag) is
-	 * left alone, since associateUpdate() only writes the columns present in the
-	 * hash passed to LibertyXref::store().
+	 * xref, in place — the one spot that actually writes to the pantry balance,
+	 * called from both the movement side (receipts) and add_assembly_item.php
+	 * (a meal consuming ingredients — negative delta, same shared write-path so
+	 * both stay consistent). Result is floored at 0 - stock can't go negative.
+	 * Creates a REM row at $pDelta if the component doesn't have one yet (e.g.
+	 * first-ever receipt for a component the importer never flagged). Only
+	 * $pDelta and $pComponentContentId's own current xkey are touched — any
+	 * existing xkey_ext (e.g. a still-outstanding REVIEW flag) is left alone,
+	 * since associateUpdate() only writes the columns present in the hash
+	 * passed to LibertyXref::store().
 	 *
 	 * @param  int   $pComponentContentId
 	 * @param  float $pDelta
@@ -448,11 +451,15 @@ class FoodMovement extends LibertyContent {
 			[ $pComponentContentId ]
 		);
 		$current = $existing ? (float)$existing['xkey'] : 0.0;
+		// Floored at 0 - stock can't go negative (a meal consuming more than the
+		// pantry has on record, or a receipt reversal against stock already partly
+		// eaten, both land here the same way).
+		$new = max( 0.0, $current + $pDelta );
 		$xref = new LibertyXref();
 		$pHash = [
 			'content_id' => $pComponentContentId,
 			'item'       => 'REM',
-			'xkey'       => (string)( $current + $pDelta ),
+			'xkey'       => (string)$new,
 		];
 		if( $existing ) {
 			$pHash['xref_id'] = $existing['xref_id'];
