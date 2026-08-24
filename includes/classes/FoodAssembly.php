@@ -276,6 +276,14 @@ class FoodAssembly extends LibertyContent {
 	 * to clearItems() first when rebuilding a meal's list, so there's no existing row
 	 * to find/update the way FoodComponent's nutrition xrefs do.
 	 *
+	 * Deliberately does NOT touch the component's REM balance itself — historical
+	 * import (ImportFoodIntake.php) is the other caller of this method, backfilling
+	 * meals that predate any pantry tracking at all (see MANUAL.md's FoodMovement
+	 * section — "no historical movement_out for anything before a stocktake
+	 * baseline"), so a REM adjustment belongs at the call site, not in here. Live
+	 * callers (add_assembly_item.php, copy_assembly.php) each call
+	 * FoodMovement::adjustComponentRem() themselves alongside this — see those files.
+	 *
 	 * @param string   $pMealTypeItem     BREAKFAST/LUNCH/DINNER/MSNK/ESNK.
 	 * @param int      $pComponentId      The FoodComponent's content_id (stored in xref).
 	 * @param int      $pGrams            Quantity, in the component's own base unit (xkey).
@@ -377,6 +385,7 @@ class FoodAssembly extends LibertyContent {
 				FROM `".BIT_DB_PREFIX."liberty_xref` x
 				JOIN `".BIT_DB_PREFIX."liberty_content` lc ON ( lc.`content_id` = x.`xref` )
 				WHERE x.`content_id` = ? AND x.`item` IN ('".implode( "','", array_keys( self::MEAL_TYPE_LABELS ) )."')
+				  AND x.`end_date` IS NULL
 				ORDER BY x.`xorder`",
 			[ $this->mContentId ]
 		);
@@ -522,9 +531,22 @@ class FoodAssembly extends LibertyContent {
 		return $this->store( $pHash );
 	}
 
+	/**
+	 * Delete this meal — restocks every ingredient's REM balance first (same
+	 * reasoning as FoodMovement::expunge() reversing receipt lines before its own
+	 * raw DELETE: once the xref rows are gone there's nothing left to compute the
+	 * reversal from), then hard-deletes the ingredient rows and the content itself.
+	 * The counterpart to add_assembly_item.php/copy_assembly.php's REM decrement —
+	 * a meal being deleted gives its ingredients back to the pantry the same way a
+	 * receipt reversal or movement-line delete does.
+	 */
 	public function expunge(): bool {
 		if( $this->isValid() ) {
 			$this->StartTrans();
+			$movement = new FoodMovement();
+			foreach( $this->getItems() as $item ) {
+				$movement->adjustComponentRem( (int)$item['component_content_id'], (float)$item['quantity'] );
+			}
 			$this->mDb->getOne( "DELETE FROM `".BIT_DB_PREFIX."liberty_xref` WHERE `content_id` = ?", [ $this->mContentId ] );
 			if( LibertyContent::expunge() ) {
 				$this->CompleteTrans();

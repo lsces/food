@@ -61,8 +61,15 @@ if( !empty( $_REQUEST['save'] ) ) {
 			// not a literal array, or it fatals.
 			$pHash = [ 'title' => $title, 'event_time' => $newEventTime ];
 			if( $new->store( $pHash ) ) {
+				$movement = new FoodMovement();
 				foreach( $sourceItems as $item ) {
 					$new->addItem( $mealType, (int)$item['component_content_id'], (int)$item['quantity'], (int)$item['xorder'] );
+					// Mirrors add_assembly_item.php's own REM decrement — a copied
+					// meal eats ingredients the same as one built by hand, and
+					// addItem() deliberately doesn't do this itself (see its
+					// docblock — historical import shares the same method and must
+					// NOT touch REM).
+					$movement->adjustComponentRem( (int)$item['component_content_id'], -(float)$item['quantity'] );
 				}
 				header( 'Location: '.FOOD_PKG_URL.'view_assembly.php?content_id='.$new->mContentId );
 				die;
