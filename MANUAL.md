@@ -275,18 +275,15 @@ unfiltered).
   with popups. Cross-package (Stock/Food/Contact), also reclassified as liberty-level.
 - **~~`explodeFromAssembly()`~~ — now built, piecemeal, not as one method.** The outbound half of
   pantry tracking: `add_assembly_item.php` (manual add) and `copy_assembly.php` decrement `REM` via
-  `FoodMovement::adjustComponentRem()` per item added; `FoodAssembly::removeItem()` (single-line
-  remove, wired to `edit_assembly.tpl`'s per-row Remove link since 2026-08-24 — previously bypassed
-  `REM` via generic `liberty/edit_xref.php`) and `FoodAssembly::expunge()` (whole-meal delete) both
-  restock on the way out. CSV import (`ImportFoodIntake.php`, via `FoodAssembly::addItem()`)
-  deliberately does NOT touch `REM` — those meals predate any pantry tracking baseline. See the
-  REM xref group's own entry above for the dust-threshold/actual-delta-tracking mechanics that
-  make the restock side accurate. **Known remaining gap**: `edit_assembly.tpl`'s per-row "Edit"
-  link (in-place quantity correction, generic `liberty/edit_xref.php`) still bypasses `REM` —
-  changing a logged quantity after the fact doesn't adjust the pantry balance to match. Same bug
-  class as the fixes above, not yet reported/actioned (mirrors `FoodMovement::updateComponentLine()`,
-  which already handles this correctly for receipt lines — that's the pattern to follow if picked
-  up).
+  `FoodMovement::adjustComponentRem()` per item added; `FoodAssembly::updateItem()` (in-place
+  quantity correction, `edit_assembly.tpl`'s per-row inline form), `removeItem()` (single-line
+  remove, its Remove link) and `expunge()` (whole-meal delete, `view_assembly.tpl`'s Delete Meal
+  floaticon → `edit_assembly.php`'s `delete` branch) all keep REM in sync on the way in and out —
+  as of 2026-08-24 every ingredient-list mutation goes through one of these, none through generic
+  `liberty/edit_xref.php` any more. CSV import (`ImportFoodIntake.php`, via `FoodAssembly::addItem()`)
+  deliberately still does NOT touch `REM` — those meals predate any pantry tracking baseline. See
+  the REM xref group's own entry above for the dust-threshold/actual-delta-tracking mechanics that
+  make every restock accurate rather than just re-adding the nominal logged quantity.
 
 ## Deployment topology
 
