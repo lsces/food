@@ -5,6 +5,9 @@
 			{if $gContent->hasUpdatePermission()}
 				<a title="{tr}Edit{/tr}" href="{$smarty.const.FOOD_PKG_URL}edit_movement.php?content_id={$gContent->mContentId}">{biticon ipackage="icons" iname="edit" iexplain="Edit Receipt"}</a>
 			{/if}
+			{if $gContent->hasExpungePermission()}
+				<a title="{tr}Delete Receipt{/tr}" href="{$smarty.const.FOOD_PKG_URL}edit_movement.php?content_id={$gContent->mContentId}&amp;delete=1">{biticon ipackage="icons" iname="user-trash" iexplain="Delete Receipt"}</a>
+			{/if}
 		</div>
 		<h1>{$gContent->getTitle()|escape}</h1>
 	</header>
