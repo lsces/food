@@ -9,7 +9,7 @@
 				<a title="{tr}Copy to another date{/tr}" href="{$smarty.const.FOOD_PKG_URL}copy_assembly.php?content_id={$gContent->mContentId}">{biticon ipackage="icons" iname="edit-copy" iexplain="Copy to another date"}</a>
 			{/if}
 			{if $gContent->hasExpungePermission()}
-				<a title="{tr}Delete Meal{/tr}" href="{$smarty.const.FOOD_PKG_URL}edit_assembly.php?content_id={$gContent->mContentId}&amp;delete=1">{biticon ipackage="icons" iname="user-trash" iexplain="Delete Meal"}</a>
+				<a title="{tr}Delete Meal{/tr}" href="{$smarty.const.FOOD_PKG_URL}edit_assembly.php?content_id={$gContent->mContentId}&amp;delete=1" onclick="return confirm('{tr}Are you sure you want to delete this meal? This restocks the pantry for its ingredients.{/tr}')">{biticon ipackage="icons" iname="user-trash" iexplain="Delete Meal"}</a>
 			{/if}
 		</div>
 		<h1>{tr}View{/tr} {$mealLabel|escape}</h1>

@@ -135,24 +135,16 @@ if( !empty( $_REQUEST['save'] ) ) {
 	}
 
 } elseif( !empty( $_REQUEST['delete'] ) ) {
+	// Confirmation happens client-side (view_movement.tpl's onclick="return
+	// confirm(...)" — same lightweight pattern kernel's admin menu/module-config/
+	// layout delete links already use) rather than a server-rendered
+	// confirmDialog() round-trip — there are no extra choices to offer (unlike
+	// e.g. stock's assembly delete, which asks about a recurse option), so a
+	// second full page load would just be unnecessary friction.
 	$gBitSystem->verifyPermission( 'p_food_expunge' );
-	if( !empty( $_REQUEST['cancel'] ) ) {
-		header( 'Location: '.FOOD_PKG_URL.'edit_movement.php?content_id='.$gContent->mContentId );
-		die;
-	} elseif( empty( $_REQUEST['confirm'] ) ) {
-		$gBitSystem->confirmDialog(
-			[ 'delete' => true, 'content_id' => $gContent->mContentId ],
-			[
-				'confirm_item' => $gContent->getTitle(),
-				'warning'      => KernelTools::tra( 'Are you sure you want to delete this receipt? This reverses the stock it added.' ).' ('.$gContent->getTitle().')',
-				'error'        => KernelTools::tra( 'This cannot be undone!' ),
-			]
-		);
-	} else {
-		$gContent->expunge();
-		header( 'Location: '.FOOD_PKG_URL.'list_movements.php' );
-		die;
-	}
+	$gContent->expunge();
+	header( 'Location: '.FOOD_PKG_URL.'list_movements.php' );
+	die;
 }
 
 $shops = $gBitDb->getAll(

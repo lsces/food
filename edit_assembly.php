@@ -71,30 +71,21 @@ if( !empty( $_REQUEST['remove_xref_id'] ) ) {
 
 } elseif( !empty( $_REQUEST['delete'] ) ) {
 	// Deletes the whole meal — restocks every ingredient's REM first (see
-	// FoodAssembly::expunge()). Mirrors edit_movement.php's/stock's
-	// edit_assembly.php's identical delete/confirm/cancel convention.
+	// FoodAssembly::expunge()). Confirmation happens client-side
+	// (view_assembly.tpl's onclick="return confirm(...)" — same lightweight
+	// pattern kernel's admin menu/module-config/layout delete links already
+	// use) rather than a server-rendered confirmDialog() round-trip — no extra
+	// choices to offer here (unlike stock's assembly delete, which asks about
+	// a recurse option), so a second full page load would just be friction.
 	$gBitSystem->verifyPermission( 'p_food_expunge' );
-	if( !empty( $_REQUEST['cancel'] ) ) {
-		header( 'Location: '.FOOD_PKG_URL.'view_assembly.php?content_id='.$gContent->mContentId );
-		die;
-	} elseif( empty( $_REQUEST['confirm'] ) ) {
-		$gBitSystem->confirmDialog(
-			[ 'delete' => true, 'content_id' => $gContent->mContentId ],
-			[
-				'warning' => KernelTools::tra( 'Are you sure you want to delete this meal? This restocks the pantry for its ingredients.' ).' ('.$gContent->getTitle().')',
-				'error'   => KernelTools::tra( 'This cannot be undone!' ),
-			]
-		);
-	} else {
-		// Captured before expunge() clears mContentId — view_day.php's own
-		// day-boundary convention (gmdate('Y-m-d 00:00:00', ...), see
-		// FoodAssembly::mealTypesTakenOnDay()) so this lands back on the day
-		// the deleted meal used to belong to.
-		$dayDateStr = gmdate( 'Y-m-d', (int)$gContent->getField( 'event_time' ) );
-		$gContent->expunge();
-		header( 'Location: '.FOOD_PKG_URL.'view_day.php?date='.$dayDateStr );
-		die;
-	}
+	// Captured before expunge() clears mContentId — view_day.php's own
+	// day-boundary convention (gmdate('Y-m-d 00:00:00', ...), see
+	// FoodAssembly::mealTypesTakenOnDay()) so this lands back on the day the
+	// deleted meal used to belong to.
+	$dayDateStr = gmdate( 'Y-m-d', (int)$gContent->getField( 'event_time' ) );
+	$gContent->expunge();
+	header( 'Location: '.FOOD_PKG_URL.'view_day.php?date='.$dayDateStr );
+	die;
 
 } elseif( !empty( $_REQUEST['save'] ) ) {
 	$newType = $_REQUEST['meal_type'] ?? null;
