@@ -259,9 +259,16 @@ unfiltered).
   project, not Food's own — Food would just be the first consumer.
 - **Modal quick-add UX** (`[[project_modal_quick_add_ux]]`) — replacing full-page add/edit flows
   with popups. Cross-package (Stock/Food/Contact), also reclassified as liberty-level.
-- **`explodeFromAssembly()`** (or equivalent) — the outbound half of `FoodMovement`, decrementing
-  `REM` when a diary meal is logged or a recipe used. Not built; diary logging and pantry tracking
-  are currently two independent systems that don't talk to each other.
+- **~~`explodeFromAssembly()`~~ — now built, piecemeal, not as one method.** The outbound half of
+  pantry tracking: `add_assembly_item.php` (manual add) and `copy_assembly.php` (as of 2026-08-24)
+  both call `FoodMovement::adjustComponentRem()` themselves per item added; `FoodAssembly::expunge()`
+  (as of 2026-08-24) reverses every ingredient's `REM` contribution before deleting a meal. CSV
+  import (`ImportFoodIntake.php`, via `FoodAssembly::addItem()`) deliberately does NOT touch `REM`
+  — those meals predate any pantry tracking baseline. **Known remaining gap**: removing a single
+  ingredient line from an existing meal (`edit_assembly.tpl`'s per-row Remove link, generic
+  `liberty/edit_xref.php?expunge=3`) still bypasses `REM` entirely — only whole-meal delete and
+  whole-meal copy go through the class methods above. Not fixed yet, same class of bug as the
+  2026-08-24 fixes, just not reported/actioned.
 
 ## Deployment topology
 
