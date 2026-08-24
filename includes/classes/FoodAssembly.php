@@ -284,15 +284,27 @@ class FoodAssembly extends LibertyContent {
 	 * callers (add_assembly_item.php, copy_assembly.php) each call
 	 * FoodMovement::adjustComponentRem() themselves alongside this — see those files.
 	 *
-	 * @param string   $pMealTypeItem     BREAKFAST/LUNCH/DINNER/MSNK/ESNK.
-	 * @param int      $pComponentId      The FoodComponent's content_id (stored in xref).
-	 * @param int      $pGrams            Quantity, in the component's own base unit (xkey).
-	 * @param int      $pPosition         xorder — position within the meal.
-	 * @param int|null $pEntryDate        Unix timestamp — mirrors the source row's own
-	 *                                    create_time rather than import-run time.
-	 * @param int|null $pLastUpdateDate   Unix timestamp — mirrors update_time.
+	 * @param string   $pMealTypeItem       BREAKFAST/LUNCH/DINNER/MSNK/ESNK.
+	 * @param int      $pComponentId        The FoodComponent's content_id (stored in xref).
+	 * @param int      $pGrams              Quantity, in the component's own base unit (xkey).
+	 * @param int      $pPosition           xorder — position within the meal.
+	 * @param int|null $pEntryDate          Unix timestamp — mirrors the source row's own
+	 *                                      create_time rather than import-run time.
+	 * @param int|null $pLastUpdateDate     Unix timestamp — mirrors update_time.
+	 * @param float|null $pRemRestockAmount The actual REM delta the caller's own
+	 *                                      adjustComponentRem() call applied (its
+	 *                                      return value, negated back to a positive
+	 *                                      restock amount) — stashed in xkey_ext so
+	 *                                      removeItem()/expunge() can restock this
+	 *                                      exact line later instead of blindly
+	 *                                      re-adding $pGrams, which would over-credit
+	 *                                      stock whenever the original decrement was
+	 *                                      clamped (empty pantry, dust threshold —
+	 *                                      see adjustComponentRem()). Null (the
+	 *                                      default) leaves xkey_ext unset, e.g. for
+	 *                                      the CSV importer's REM-blind backfill.
 	 */
-	public function addItem( string $pMealTypeItem, int $pComponentId, int $pGrams, int $pPosition, ?int $pEntryDate = null, ?int $pLastUpdateDate = null ): void {
+	public function addItem( string $pMealTypeItem, int $pComponentId, int $pGrams, int $pPosition, ?int $pEntryDate = null, ?int $pLastUpdateDate = null, ?float $pRemRestockAmount = null ): void {
 		$pHash = [
 			'content_id' => $this->mContentId,
 			'item'       => $pMealTypeItem,
@@ -306,8 +318,51 @@ class FoodAssembly extends LibertyContent {
 		if( $pLastUpdateDate !== null ) {
 			$pHash['last_update_date'] = $pLastUpdateDate;
 		}
+		if( $pRemRestockAmount !== null ) {
+			$pHash['xkey_ext'] = (string)$pRemRestockAmount;
+		}
 		$xref = new LibertyXref();
 		$xref->store( $pHash );
+	}
+
+	/**
+	 * Remove one ingredient line and restock its REM contribution — companion to
+	 * addItem(), needed because liberty's generic edit_xref.php delete path knows
+	 * nothing about the REM side-effect (same reasoning as why add_assembly_item.php
+	 * exists instead of a generic add_xref.php form). Hard-deletes the row
+	 * (expunge=3), matching the trash icon's existing implied action. Restocks
+	 * using the line's own stored xkey_ext (the actual amount addItem()'s caller
+	 * originally removed from REM — see addItem()'s $pRemRestockAmount docblock)
+	 * rather than the nominal xkey grams, so a line that was consumed against an
+	 * already-empty (or dust-clamped) pantry correctly restocks little or nothing
+	 * instead of over-crediting stock that was never really there. Falls back to
+	 * the nominal xkey for a legacy row that predates this tracking (no xkey_ext
+	 * stored) — the pre-2026-08-24 best-effort behaviour, not a regression.
+	 * Caller must gate this behind expunge permission — see edit_assembly.php's
+	 * remove_xref_id branch, same convention as FoodMovement::removeComponentLine().
+	 *
+	 * @param  int $pXrefId
+	 * @return bool  FALSE if no such line exists on this assembly.
+	 */
+	public function removeItem( int $pXrefId ): bool {
+		$row = $this->mDb->getRow(
+			"SELECT `xref`, `xkey`, `xkey_ext` FROM `".BIT_DB_PREFIX."liberty_xref` WHERE `xref_id` = ? AND `content_id` = ?",
+			[ $pXrefId, $this->mContentId ]
+		);
+		if( !$row ) {
+			return false;
+		}
+		$this->StartTrans();
+		$pHash = [ 'xref_id' => $pXrefId, 'expunge' => 3 ];
+		$ok = $this->stepXref( $pHash );
+		if( $ok ) {
+			$restock = ( $row['xkey_ext'] !== null && $row['xkey_ext'] !== '' ) ? (float)$row['xkey_ext'] : (float)$row['xkey'];
+			( new FoodMovement() )->adjustComponentRem( (int)$row['xref'], $restock );
+			$this->CompleteTrans();
+		} else {
+			$this->mDb->RollbackTrans();
+		}
+		return $ok;
 	}
 
 	/**
@@ -369,7 +424,9 @@ class FoodAssembly extends LibertyContent {
 	 * (its own quantity group's WT/VOL marker, if any) joined in.
 	 *
 	 * @return array  Each row: xref_id, item, component_content_id (xref), quantity
-	 *                (xkey), xorder, component_title, component_display_url,
+	 *                (xkey), rem_restock_amount (xkey_ext — see addItem()'s
+	 *                $pRemRestockAmount docblock; null for a legacy pre-2026-08-24
+	 *                row), xorder, component_title, component_display_url,
 	 *                quantity_unit ('g'/'ml'/'').
 	 */
 	public function getItems(): array {
@@ -377,7 +434,8 @@ class FoodAssembly extends LibertyContent {
 			return [];
 		}
 		$rows = $this->mDb->getAll(
-			"SELECT x.`xref_id`, x.`item`, x.`xref` AS component_content_id, x.`xkey` AS quantity, x.`xorder`,
+			"SELECT x.`xref_id`, x.`item`, x.`xref` AS component_content_id, x.`xkey` AS quantity,
+					x.`xkey_ext` AS rem_restock_amount, x.`xorder`,
 					lc.`title` AS component_title,
 					( SELECT FIRST 1 u.`item` FROM `".BIT_DB_PREFIX."liberty_xref` u
 						WHERE u.`content_id` = x.`xref` AND u.`item` IN ('WT','VOL')
@@ -545,7 +603,15 @@ class FoodAssembly extends LibertyContent {
 			$this->StartTrans();
 			$movement = new FoodMovement();
 			foreach( $this->getItems() as $item ) {
-				$movement->adjustComponentRem( (int)$item['component_content_id'], (float)$item['quantity'] );
+				// See removeItem()'s docblock — restock the actual amount this line
+				// took from REM (rem_restock_amount), not the nominal quantity, or a
+				// meal consumed against an empty/dust-clamped pantry over-credits
+				// stock that was never really there. Legacy rows without it fall
+				// back to the nominal quantity (pre-2026-08-24 best effort).
+				$restock = ( $item['rem_restock_amount'] !== null && $item['rem_restock_amount'] !== '' )
+					? (float)$item['rem_restock_amount']
+					: (float)$item['quantity'];
+				$movement->adjustComponentRem( (int)$item['component_content_id'], $restock );
 			}
 			$this->mDb->getOne( "DELETE FROM `".BIT_DB_PREFIX."liberty_xref` WHERE `content_id` = ?", [ $this->mContentId ] );
 			if( LibertyContent::expunge() ) {

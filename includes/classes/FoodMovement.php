@@ -10,9 +10,10 @@
  * group). Adding or removing a line also adjusts the referenced FoodComponent's
  * own REM balance — Food's REM is a stored/mutable value, not derived by summing
  * movements the way Stock's list_stock.php aggregates (see food/CLAUDE.md), so
- * this class is the one place that keeps the two in sync. FoodAssembly's own
- * future explodeFromAssembly() equivalent is the other half (outbound, on a
- * diary meal being logged) — not built yet.
+ * this class is the one place that keeps the two in sync. The outbound half
+ * (meals consuming ingredients) is built piecemeal in FoodAssembly rather than
+ * as one explodeFromAssembly()-style method — see that class — but every write
+ * to REM anywhere in the package still goes through adjustComponentRem() below.
  *
  * @package food
  */
@@ -428,33 +429,64 @@ class FoodMovement extends LibertyContent {
 		return $ok;
 	}
 
+	/** Consumption (negative-delta) results landing below this fraction of the
+	 *  component's own declared WT/VOL portion size get zeroed rather than left
+	 *  as an untrackable dust remainder — a shrinking pack rarely gets weighed
+	 *  out to the exact last gram, so a REM of "12g" lingering forever is noise,
+	 *  not a real usable amount (Lester, 2026-08-24). Applies to any negative
+	 *  delta through this method, receipt reversals included, not just meal
+	 *  consumption — the same "too small to be real" reasoning holds either way.
+	 *  A component with no declared WT/VOL falls back to a plain floor-at-zero
+	 *  (dust threshold 0). */
+	public const DUST_THRESHOLD_RATIO = 0.25;
+
 	/**
 	 * Add (or subtract, for a negative delta) $pDelta to a FoodComponent's REM
 	 * xref, in place — the one spot that actually writes to the pantry balance,
-	 * called from both the movement side (receipts) and add_assembly_item.php
-	 * (a meal consuming ingredients — negative delta, same shared write-path so
-	 * both stay consistent). Result is floored at 0 - stock can't go negative.
-	 * Creates a REM row at $pDelta if the component doesn't have one yet (e.g.
-	 * first-ever receipt for a component the importer never flagged). Only
-	 * $pDelta and $pComponentContentId's own current xkey are touched — any
-	 * existing xkey_ext (e.g. a still-outstanding REVIEW flag) is left alone,
-	 * since associateUpdate() only writes the columns present in the hash
-	 * passed to LibertyXref::store().
+	 * called from both the movement side (receipts) and FoodAssembly's ingredient
+	 * add/copy/remove/delete paths (meals consuming ingredients — negative delta,
+	 * same shared write-path so both stay consistent). Creates a REM row at
+	 * $pDelta if the component doesn't have one yet (e.g. first-ever receipt for
+	 * a component the importer never flagged). Only $pDelta and
+	 * $pComponentContentId's own current xkey are touched — any existing
+	 * xkey_ext (e.g. a still-outstanding REVIEW flag) is left alone, since
+	 * associateUpdate() only writes the columns present in the hash passed to
+	 * LibertyXref::store().
+	 *
+	 * Returns the delta actually applied (new − old), which can differ from
+	 * $pDelta itself once clamping (floor-at-zero or the dust threshold below)
+	 * kicks in — callers that need to reverse this exact change later (see
+	 * FoodAssembly::addItem()'s $pRemRestockAmount / removeItem() / expunge())
+	 * must store and reuse this returned value rather than re-deriving it from
+	 * the nominal quantity, or a reversal can over-credit stock that was never
+	 * actually there to begin with.
 	 *
 	 * @param  int   $pComponentContentId
 	 * @param  float $pDelta
+	 * @return float  The actual change in REM (new value − old value).
 	 */
-	public function adjustComponentRem( int $pComponentContentId, float $pDelta ): void {
+	public function adjustComponentRem( int $pComponentContentId, float $pDelta ): float {
 		$existing = $this->mDb->getRow(
 			"SELECT `xref_id`, `xkey` FROM `".BIT_DB_PREFIX."liberty_xref`
 			 WHERE `content_id` = ? AND `item` = 'REM'",
 			[ $pComponentContentId ]
 		);
 		$current = $existing ? (float)$existing['xkey'] : 0.0;
-		// Floored at 0 - stock can't go negative (a meal consuming more than the
-		// pantry has on record, or a receipt reversal against stock already partly
-		// eaten, both land here the same way).
-		$new = max( 0.0, $current + $pDelta );
+		$raw = $current + $pDelta;
+		if( $pDelta < 0 ) {
+			$portionSize = $this->mDb->getOne(
+				"SELECT `xkey` FROM `".BIT_DB_PREFIX."liberty_xref`
+				 WHERE `content_id` = ? AND `item` IN ('WT','VOL') AND `xkey` IS NOT NULL AND `xkey` <> ''",
+				[ $pComponentContentId ]
+			);
+			$dustThreshold = $portionSize ? self::DUST_THRESHOLD_RATIO * (float)$portionSize : 0.0;
+			$new = $raw < $dustThreshold ? 0.0 : $raw;
+		} else {
+			// Stock can't go negative, but the dust threshold above only ever
+			// applies in the consumption direction — a receipt always keeps
+			// exactly what it adds.
+			$new = max( 0.0, $raw );
+		}
 		$xref = new LibertyXref();
 		$pHash = [
 			'content_id' => $pComponentContentId,
@@ -467,6 +499,7 @@ class FoodMovement extends LibertyContent {
 			$pHash['fAddXref'] = 1;
 		}
 		$xref->store( $pHash );
+		return $new - $current;
 	}
 
 	/**

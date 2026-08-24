@@ -106,6 +106,20 @@ Entirely separate axis from nutrition. Registered items:
   (no historical `movement_out` for anything before a stocktake baseline). Only
   `FoodMovement::adjustComponentRem()` writes it, always inside the same transaction as the
   triggering line add/remove/edit.
+  - **Dust threshold** (`adjustComponentRem()`'s `DUST_THRESHOLD_RATIO`, 0.25, 2026-08-24): a
+    consumption delta (negative) landing below 25% of the component's own declared `WT`/`VOL`
+    portion size zeroes `REM` instead of leaving a small remainder — a shrinking pack rarely gets
+    weighed out to the exact last gram, so a lingering "12g" isn't a real trackable amount. Applies
+    to any negative delta through this method (receipt reversals included), not just meal
+    consumption. A component with no declared `WT`/`VOL` falls back to a plain floor-at-zero.
+  - **Actual-delta tracking** (same date): `adjustComponentRem()` returns the delta it actually
+    applied (`new − old`), which can differ from the requested delta once floor-at-zero or the
+    dust threshold clamp it. `FoodAssembly`'s consuming call sites (`add_assembly_item.php`,
+    `copy_assembly.php`) stash this actual value on the ingredient line itself, via that line's own
+    `xkey_ext` (see `addItem()`'s `$pRemRestockAmount` param) — so a later reversal
+    (`FoodAssembly::removeItem()`, `expunge()`) restocks exactly what was really taken, not the
+    nominal logged quantity. This is what makes "delete a meal that was logged against an already-
+    empty pantry" correctly restock nothing, instead of crediting stock that was never there.
 - **`REM`'s `xkey_ext` also carries a review-status tag** (`'REVIEW'` = still needs curation,
   cleared by hand once fixed) — a second, unrelated use of the same spare column, not to be
   confused with the pantry balance itself. `data` (on `liberty_content`, not the `REM` row) is a
@@ -260,15 +274,19 @@ unfiltered).
 - **Modal quick-add UX** (`[[project_modal_quick_add_ux]]`) — replacing full-page add/edit flows
   with popups. Cross-package (Stock/Food/Contact), also reclassified as liberty-level.
 - **~~`explodeFromAssembly()`~~ — now built, piecemeal, not as one method.** The outbound half of
-  pantry tracking: `add_assembly_item.php` (manual add) and `copy_assembly.php` (as of 2026-08-24)
-  both call `FoodMovement::adjustComponentRem()` themselves per item added; `FoodAssembly::expunge()`
-  (as of 2026-08-24) reverses every ingredient's `REM` contribution before deleting a meal. CSV
-  import (`ImportFoodIntake.php`, via `FoodAssembly::addItem()`) deliberately does NOT touch `REM`
-  — those meals predate any pantry tracking baseline. **Known remaining gap**: removing a single
-  ingredient line from an existing meal (`edit_assembly.tpl`'s per-row Remove link, generic
-  `liberty/edit_xref.php?expunge=3`) still bypasses `REM` entirely — only whole-meal delete and
-  whole-meal copy go through the class methods above. Not fixed yet, same class of bug as the
-  2026-08-24 fixes, just not reported/actioned.
+  pantry tracking: `add_assembly_item.php` (manual add) and `copy_assembly.php` decrement `REM` via
+  `FoodMovement::adjustComponentRem()` per item added; `FoodAssembly::removeItem()` (single-line
+  remove, wired to `edit_assembly.tpl`'s per-row Remove link since 2026-08-24 — previously bypassed
+  `REM` via generic `liberty/edit_xref.php`) and `FoodAssembly::expunge()` (whole-meal delete) both
+  restock on the way out. CSV import (`ImportFoodIntake.php`, via `FoodAssembly::addItem()`)
+  deliberately does NOT touch `REM` — those meals predate any pantry tracking baseline. See the
+  REM xref group's own entry above for the dust-threshold/actual-delta-tracking mechanics that
+  make the restock side accurate. **Known remaining gap**: `edit_assembly.tpl`'s per-row "Edit"
+  link (in-place quantity correction, generic `liberty/edit_xref.php`) still bypasses `REM` —
+  changing a logged quantity after the fact doesn't adjust the pantry balance to match. Same bug
+  class as the fixes above, not yet reported/actioned (mirrors `FoodMovement::updateComponentLine()`,
+  which already handles this correctly for receipt lines — that's the pattern to follow if picked
+  up).
 
 ## Deployment topology
 

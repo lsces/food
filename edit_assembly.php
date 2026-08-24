@@ -43,6 +43,17 @@ $gContent->verifyUpdatePermission();
 
 $errors = [];
 
+if( !empty( $_REQUEST['remove_xref_id'] ) ) {
+	// Hard-deletes the line and restocks its REM contribution (see
+	// FoodAssembly::removeItem()) — gate on expunge permission, not just the
+	// update permission the page load already checked, matching
+	// edit_movement.php's identical remove_xref_id branch/convention.
+	$gContent->verifyExpungePermission();
+	$gContent->removeItem( (int)$_REQUEST['remove_xref_id'] );
+	header( 'Location: '.FOOD_PKG_URL.'edit_assembly.php?content_id='.$gContent->mContentId );
+	die;
+}
+
 if( !empty( $_REQUEST['save'] ) ) {
 	$newType = $_REQUEST['meal_type'] ?? null;
 	if( $newType && $newType !== $gContent->getMealType() ) {

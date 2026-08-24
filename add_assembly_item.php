@@ -100,6 +100,16 @@ if( !empty( $_REQUEST['fAddComponent'] ) ) {
 				[ $gContent->mContentId, $mealType ]
 			) ?: 1;
 
+			// Applied before the line itself is stored — a meal eating a component
+			// takes it out of the pantry balance the same way a receipt puts it in,
+			// clamped by adjustComponentRem() itself (empty pantry, or its dust
+			// threshold near an empty pack — see that method's docblock). The
+			// *actual* delta applied (not the nominal $qty) is stashed on the line
+			// via xkey_ext, so removeItem()/expunge() can restock exactly this much
+			// later rather than over-crediting stock that was never really there.
+			$roundedQty = (float)round( (float)$qty );
+			$actualDelta = ( new FoodMovement() )->adjustComponentRem( $compId, -$roundedQty );
+
 			$xrefObj = new LibertyXref();
 			$xrefObj->mContentTypeGuid = 'foodassembly';
 			$pHash = [
@@ -107,15 +117,10 @@ if( !empty( $_REQUEST['fAddComponent'] ) ) {
 				'item'       => $mealType,
 				'xorder'     => $nextXorder,
 				'xref'       => $compId,
-				'xkey'       => (string)(int)round( (float)$qty ),
+				'xkey'       => (string)(int)$roundedQty,
+				'xkey_ext'   => (string)( -$actualDelta ),
 			];
 			if( $xrefObj->store( $pHash ) ) {
-				// Mirrors FoodMovement::adjustComponentRem()'s receipt side — a meal
-				// eating a component should take it out of the pantry balance the
-				// same way a receipt puts it in. Floored at 0 inside
-				// adjustComponentRem() itself, so over-consuming past what's on
-				// record never goes negative.
-				( new FoodMovement() )->adjustComponentRem( $compId, -(float)round( (float)$qty ) );
 				header( 'Location: '.FOOD_PKG_URL.'edit_assembly.php?content_id='.$gContent->mContentId );
 				die;
 			}
