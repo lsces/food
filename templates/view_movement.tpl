@@ -2,6 +2,7 @@
 <div class="display food">
 	<header>
 		<div class="floaticon">
+			<a title="{tr}Back to movements{/tr}" href="{$smarty.const.FOOD_PKG_URL}list_movements.php">{biticon ipackage="icons" iname="go-previous" iexplain="Back to movements"}</a>
 			{if $gContent->hasUpdatePermission()}
 				<a title="{tr}Edit{/tr}" href="{$smarty.const.FOOD_PKG_URL}edit_movement.php?content_id={$gContent->mContentId}">{biticon ipackage="icons" iname="edit" iexplain="Edit Receipt"}</a>
 			{/if}
@@ -43,8 +44,6 @@
 				{/foreach}
 			</tbody>
 		</table>
-
-		<p><a href="{$smarty.const.FOOD_PKG_URL}list_movements.php">{tr}Back to movements{/tr}</a></p>
 	</div>
 </div>
 {/strip}

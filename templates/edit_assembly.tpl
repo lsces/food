@@ -31,7 +31,7 @@
 				{/forminput}
 			</div>
 			<div class="form-group submit">
-				<input type="submit" class="btn btn-primary" name="save" value="{tr}Save{/tr}" />
+				<input type="submit" class="btn btn-primary" name="save" value="{tr}Save details{/tr}" />
 			</div>
 		{/form}
 

@@ -1,9 +1,12 @@
 {strip}
 <div class="edit food">
 	<header>
-		{if $gContent->isValid() && $gContent->isFlaggedForReview()}
+		{if $gContent->isValid()}
 			<div class="floaticon">
-				<a title="{tr}Mark review done{/tr}" href="edit_component.php?content_id={$gContent->mContentId}&amp;clear_review=1">{biticon ipackage="icons" iname="dialog-ok-apply" iexplain="Mark review done"}</a>
+				<a title="{tr}Back to food item{/tr}" href="view_component.php?content_id={$gContent->mContentId}">{biticon ipackage="icons" iname="go-previous" iexplain="Back to food item"}</a>
+				{if $gContent->isFlaggedForReview()}
+					<a title="{tr}Mark review done{/tr}" href="edit_component.php?content_id={$gContent->mContentId}&amp;clear_review=1">{biticon ipackage="icons" iname="dialog-ok-apply" iexplain="Mark review done"}</a>
+				{/if}
 			</div>
 		{/if}
 		<h1>{tr}Edit Food Item{/tr}{if $gContent->isValid()}: {$gContent->getTitle()|escape}{/if}</h1>
@@ -28,13 +31,9 @@
 			</div>
 
 			<div class="form-group submit">
-				<input type="submit" class="btn btn-primary" name="save" value="{tr}Save{/tr}" />
+				<input type="submit" class="btn btn-primary" name="save" value="{tr}Save details{/tr}" />
 			</div>
 		{/form}
-
-		{if $gContent->isValid()}
-			<p><a href="view_component.php?content_id={$gContent->mContentId}">{tr}Back to food item{/tr}</a></p>
-		{/if}
 
 		{if $gXrefInfo && $gXrefInfo->mGroups}
 			{jstabs}

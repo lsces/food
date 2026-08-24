@@ -43,6 +43,10 @@
 				{/foreach}
 			</tbody>
 		</table>
+
+		<nav>
+			{pagination find=$find|default:'' sup=$selectedShop|default:''}
+		</nav>
 	</section>
 </div>
 {/strip}

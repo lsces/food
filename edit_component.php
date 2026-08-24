@@ -33,13 +33,14 @@ if( $gContent->isValid() ) {
 }
 
 if( !empty( $_REQUEST['save'] ) ) {
-	// A brand-new component's first save has nothing else filled in yet
-	// (nutrition, WT/VOL, supplier) — land back on this same edit page to keep
-	// going, rather than the read-only view showing an almost-empty component.
-	// Only the first save does this; every save after that behaves as before.
-	$wasNew = !$gContent->isValid();
+	// Always land back on this same edit page, not the read-only view — the
+	// title/notes form here is isolated from the xref grid below (nutrition,
+	// WT/VOL, supplier, etc., each edited via its own Edit link), so bouncing
+	// to the view page on save cost every subsequent xref edit its own trip
+	// back to edit_component.php, and tempted unsaved title/notes changes to
+	// get discarded by clicking straight into an xref row's Edit link instead.
 	if( $gContent->store( $_REQUEST ) ) {
-		header( 'Location: '.( $wasNew ? $gContent->getEditUrl() : $gContent->getDisplayUrl() ) );
+		header( 'Location: '.$gContent->getEditUrl() );
 		die;
 	}
 }

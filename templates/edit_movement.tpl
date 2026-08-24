@@ -1,6 +1,11 @@
 {strip}
 <div class="edit food">
 	<header>
+		{if $gContent->isValid()}
+			<div class="floaticon">
+				<a title="{tr}Back to receipt{/tr}" href="view_movement.php?content_id={$gContent->mContentId}">{biticon ipackage="icons" iname="go-previous" iexplain="Back to receipt"}</a>
+			</div>
+		{/if}
 		<h1>{tr}Edit Receipt{/tr}{if $gContent->isValid()}: {$gContent->getTitle()|escape}{/if}</h1>
 	</header>
 	<div class="body">
@@ -50,7 +55,7 @@
 			</div>
 
 			<div class="form-group submit">
-				<input type="submit" class="btn btn-primary" name="save" value="{tr}Save{/tr}" />
+				<input type="submit" class="btn btn-primary" name="save" value="{tr}Save details{/tr}" />
 			</div>
 		{/form}
 
@@ -110,8 +115,6 @@
 					{formhelp note="Type to search existing food items, or enter a new title to create one. Where the same title exists from more than one shop, the supplier shows in brackets — pick the right one rather than retyping the plain title. Adding a line returns you straight here, ready for the next one."}
 				{/form}
 			</div>
-
-			<p><a href="view_movement.php?content_id={$gContent->mContentId}">{tr}Back to receipt{/tr}</a></p>
 		{/if}
 	</div>
 </div>

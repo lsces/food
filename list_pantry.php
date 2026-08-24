@@ -9,6 +9,8 @@
  */
 namespace Bitweaver\Food;
 
+use Bitweaver\BitBase;
+
 require_once '../kernel/includes/setup_inc.php';
 
 global $gBitSystem, $gBitSmarty, $gBitDb;
@@ -34,6 +36,14 @@ if( $supId ) {
 	)";
 	$bindVars[] = $supId;
 }
+
+$listHash = $_REQUEST;
+if( empty( $listHash['max_records'] ) ) {
+	$listHash['max_records'] = 20;
+}
+BitBase::prepGetList( $listHash );
+$maxRecords = $listHash['max_records'];
+$offset     = $listHash['offset'];
 
 // SGL/WT/VOL redesign (2026-08-22) — see Claude memory project_food_package_scoping's
 // "SGL/WT/VOL pantry-display redesign" entry. SGL is no longer a competing quantity
@@ -68,6 +78,8 @@ $rows = $gBitDb->getAll(
 	 ORDER BY lc.`title`",
 	$bindVars
 );
+$listHash['cant'] = count( $rows );
+$rows = array_slice( $rows, $offset, $maxRecords );
 foreach( $rows as &$row ) {
 	$baseValue = is_numeric( $row['base_value_raw'] ?? null ) ? (float)$row['base_value_raw'] : null;
 	if( !empty( $row['has_sgl'] ) && $baseValue > 0 ) {
@@ -88,7 +100,13 @@ foreach( $rows as &$row ) {
 }
 unset( $row );
 
+$listHash['page_records'] = count( $rows );
+if( $find !== '' ) $listHash['listInfo']['parameters']['find'] = $find;
+if( $supId )        $listHash['listInfo']['parameters']['sup']  = $supId;
+BitBase::postGetList( $listHash );
+
 $gBitSmarty->assign( 'pantryList', $rows );
+$gBitSmarty->assign( 'listInfo',   $listHash['listInfo'] );
 $gBitSmarty->assign( 'find',       $find );
 
 // Shop filter dropdown — same shops query as list_components.php/edit_movement.php's own.

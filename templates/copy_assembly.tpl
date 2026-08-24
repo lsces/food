@@ -1,6 +1,9 @@
 {strip}
 <div class="edit food">
 	<div class="header">
+		<div class="floaticon">
+			<a title="{tr}Back to meal{/tr}" href="view_assembly.php?content_id={$gContent->mContentId}">{biticon ipackage="icons" iname="go-previous" iexplain="Back to meal"}</a>
+		</div>
 		<h1>{tr}Copy{/tr} {$mealLabel|escape} {tr}to another date{/tr}</h1>
 	</div>
 	<div class="body">
@@ -29,8 +32,6 @@
 		{else}
 			<p>{tr}This meal has no ingredients to copy.{/tr}</p>
 		{/if}
-
-		<p><a href="view_assembly.php?content_id={$gContent->mContentId}">{tr}Back to meal{/tr}</a></p>
 	</div>
 </div>
 {/strip}
