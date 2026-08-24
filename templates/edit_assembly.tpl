@@ -47,10 +47,16 @@
 				{foreach $items as $i}
 				<tr>
 					<td><a href="{$i.component_display_url|escape}">{$i.component_title|escape}</a></td>
-					<td>{$i.quantity|escape}{$i.quantity_unit|escape}</td>
+					<td>
+						{form id="qty-{$i.xref_id}" ipackage="food" ifile="edit_assembly.php" class="form-inline" style="display:inline"}
+							<input type="hidden" name="content_id" value="{$gContent->mContentId}" />
+							<input type="hidden" name="update_xref_id" value="{$i.xref_id}" />
+							<input type="text" class="form-control input-sm" name="new_quantity" value="{$i.quantity|escape}" style="width:5em;display:inline-block" />
+							<button type="submit" class="btn btn-link btn-xs" title="{tr}Save{/tr}">{biticon iname="filesave" iexplain="Save"}</button>{$i.quantity_unit|escape}
+						{/form}
+					</td>
 					<td>
 						<span class="actionicon">
-							{smartlink ititle="Edit" ipackage="liberty" ifile="edit_xref.php" biticon="edit" content_id=$gContent->mContentId xref_id=$i.xref_id}
 							{smartlink ititle="Remove" ipackage="food" ifile="edit_assembly.php" biticon="user-trash" content_id=$gContent->mContentId remove_xref_id=$i.xref_id}
 						</span>
 					</td>

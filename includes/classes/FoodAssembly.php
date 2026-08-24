@@ -366,6 +366,59 @@ class FoodAssembly extends LibertyContent {
 	}
 
 	/**
+	 * Correct an existing ingredient line's quantity in place — e.g. logging a
+	 * more accurate weight after the fact. Reverses the line's old REM
+	 * contribution (its own stored xkey_ext restock amount, or the nominal xkey
+	 * for a legacy row — same fallback removeItem() uses) then applies the new
+	 * quantity as a fresh consumption, storing *its* actual-applied delta back
+	 * onto the line so a later edit/removal stays accurate too. Two separate
+	 * adjustComponentRem() calls rather than one net delta, deliberately — the
+	 * dust threshold and floor-at-zero clamping (see that method's docblock)
+	 * each need to see the real old-then-new transition, not a collapsed sum,
+	 * or a large correction could clamp differently than reversing-then-
+	 * reapplying actually would.
+	 *
+	 * @param  int   $pXrefId
+	 * @param  float $pNewQuantity  Must be positive, in the component's own base
+	 *                              unit (grams/ml) — same convention addItem() uses.
+	 * @return bool  FALSE if no such line exists, or the quantity isn't positive.
+	 */
+	public function updateItem( int $pXrefId, float $pNewQuantity ): bool {
+		if( $pNewQuantity <= 0 ) {
+			return false;
+		}
+		$row = $this->mDb->getRow(
+			"SELECT `item`, `xref`, `xkey`, `xkey_ext` FROM `".BIT_DB_PREFIX."liberty_xref` WHERE `xref_id` = ? AND `content_id` = ?",
+			[ $pXrefId, $this->mContentId ]
+		);
+		if( !$row ) {
+			return false;
+		}
+		$this->StartTrans();
+		$movement = new FoodMovement();
+		$oldRestock = ( $row['xkey_ext'] !== null && $row['xkey_ext'] !== '' ) ? (float)$row['xkey_ext'] : (float)$row['xkey'];
+		$movement->adjustComponentRem( (int)$row['xref'], $oldRestock );
+		$newActualDelta = $movement->adjustComponentRem( (int)$row['xref'], -$pNewQuantity );
+
+		$xref = new LibertyXref();
+		$pHash = [
+			'xref_id'    => $pXrefId,
+			'content_id' => $this->mContentId,
+			'item'       => $row['item'],
+			'xref'       => (int)$row['xref'],
+			'xkey'       => (string)$pNewQuantity,
+			'xkey_ext'   => (string)( -$newActualDelta ),
+		];
+		$ok = $xref->store( $pHash );
+		if( $ok ) {
+			$this->CompleteTrans();
+		} else {
+			$this->mDb->RollbackTrans();
+		}
+		return $ok;
+	}
+
+	/**
 	 * Remove every ingredient row of one meal-type item code for this assembly —
 	 * used by the importer to rebuild an existing meal's item list from scratch each
 	 * run rather than trying to diff it (safe: re-running with unchanged source data

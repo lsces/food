@@ -2,11 +2,11 @@
 /**
  * Edit a single FoodAssembly (meal instance) — change its meal type (only among
  * types not already taken that day — see FoodAssembly::getAvailableMealTypes()),
- * and manage its ingredient list. Individual ingredient rows are edited/removed via
- * liberty's generic edit_xref.php (history-preserving delete via stepXref, proper
- * last_update_date) — nothing bespoke needed for that part. Adding a new ingredient
- * needs add_assembly_item.php (a component picker, which the generic add_xref.php
- * doesn't provide).
+ * manage its ingredient list (quantity correction, removal), and delete the whole
+ * meal. Ingredient add/remove/quantity-edit all go through FoodAssembly's own
+ * methods (addItem() via add_assembly_item.php, removeItem(), updateItem()), never
+ * liberty's generic edit_xref.php — that path knows nothing about the REM
+ * pantry-balance side-effect (see those methods' docblocks).
  *
  * @package food
  */
@@ -52,9 +52,51 @@ if( !empty( $_REQUEST['remove_xref_id'] ) ) {
 	$gContent->removeItem( (int)$_REQUEST['remove_xref_id'] );
 	header( 'Location: '.FOOD_PKG_URL.'edit_assembly.php?content_id='.$gContent->mContentId );
 	die;
-}
 
-if( !empty( $_REQUEST['save'] ) ) {
+} elseif( !empty( $_REQUEST['update_xref_id'] ) ) {
+	// Corrects an existing line's quantity in place — reverses the line's old
+	// actual REM contribution and applies the new one (see
+	// FoodAssembly::updateItem()), same "actual delta, not nominal" accuracy
+	// removeItem()/expunge() rely on. Mirrors edit_movement.php's identical
+	// update_xref_id branch/convention.
+	$newQty = trim( $_REQUEST['new_quantity'] ?? '' );
+	if( !is_numeric( $newQty ) || (float)$newQty <= 0 ) {
+		$errors['quantity'] = KernelTools::tra( 'Quantity must be a positive number.' );
+	} elseif( $gContent->updateItem( (int)$_REQUEST['update_xref_id'], (float)$newQty ) ) {
+		header( 'Location: '.FOOD_PKG_URL.'edit_assembly.php?content_id='.$gContent->mContentId );
+		die;
+	} else {
+		$errors['quantity'] = KernelTools::tra( 'Failed to update line.' );
+	}
+
+} elseif( !empty( $_REQUEST['delete'] ) ) {
+	// Deletes the whole meal — restocks every ingredient's REM first (see
+	// FoodAssembly::expunge()). Mirrors edit_movement.php's/stock's
+	// edit_assembly.php's identical delete/confirm/cancel convention.
+	$gBitSystem->verifyPermission( 'p_food_expunge' );
+	if( !empty( $_REQUEST['cancel'] ) ) {
+		header( 'Location: '.FOOD_PKG_URL.'view_assembly.php?content_id='.$gContent->mContentId );
+		die;
+	} elseif( empty( $_REQUEST['confirm'] ) ) {
+		$gBitSystem->confirmDialog(
+			[ 'delete' => true, 'content_id' => $gContent->mContentId ],
+			[
+				'warning' => KernelTools::tra( 'Are you sure you want to delete this meal? This restocks the pantry for its ingredients.' ).' ('.$gContent->getTitle().')',
+				'error'   => KernelTools::tra( 'This cannot be undone!' ),
+			]
+		);
+	} else {
+		// Captured before expunge() clears mContentId — view_day.php's own
+		// day-boundary convention (gmdate('Y-m-d 00:00:00', ...), see
+		// FoodAssembly::mealTypesTakenOnDay()) so this lands back on the day
+		// the deleted meal used to belong to.
+		$dayDateStr = gmdate( 'Y-m-d', (int)$gContent->getField( 'event_time' ) );
+		$gContent->expunge();
+		header( 'Location: '.FOOD_PKG_URL.'view_day.php?date='.$dayDateStr );
+		die;
+	}
+
+} elseif( !empty( $_REQUEST['save'] ) ) {
 	$newType = $_REQUEST['meal_type'] ?? null;
 	if( $newType && $newType !== $gContent->getMealType() ) {
 		if( !$gContent->changeMealType( $newType ) ) {

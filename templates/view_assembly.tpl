@@ -8,6 +8,9 @@
 			{if $gContent->hasCreatePermission()}
 				<a title="{tr}Copy to another date{/tr}" href="{$smarty.const.FOOD_PKG_URL}copy_assembly.php?content_id={$gContent->mContentId}">{biticon ipackage="icons" iname="edit-copy" iexplain="Copy to another date"}</a>
 			{/if}
+			{if $gContent->hasExpungePermission()}
+				<a title="{tr}Delete Meal{/tr}" href="{$smarty.const.FOOD_PKG_URL}edit_assembly.php?content_id={$gContent->mContentId}&amp;delete=1">{biticon ipackage="icons" iname="user-trash" iexplain="Delete Meal"}</a>
+			{/if}
 		</div>
 		<h1>{tr}View{/tr} {$mealLabel|escape}</h1>
 		<small><a href="{$smarty.const.FOOD_PKG_URL}view_day.php?date={$dateStr|escape}">{$gContent->getField('event_time')|bit_short_datetime}</a></small>
