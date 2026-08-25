@@ -195,6 +195,27 @@ class FoodAssembly extends LibertyContent {
 	}
 
 	/**
+	 * @param  array $pParamHash  Must contain 'content_id'.
+	 * @return string
+	 */
+	public static function getDisplayUrlFromHash( &$pParamHash ) {
+		global $gBitSystem;
+		$ret = '';
+		if( static::verifyId( $pParamHash['content_id'] ?? 0 ) ) {
+			$ret = FOOD_PKG_URL;
+			$ret .= $gBitSystem->isFeatureActive( 'pretty_urls' )
+				? 'assembly/'.$pParamHash['content_id']
+				: 'view_assembly.php?content_id='.$pParamHash['content_id'];
+		}
+		return $ret;
+	}
+
+	/** @return string  Display URL for this assembly. */
+	public function getDisplayUrl() {
+		return static::getDisplayUrlFromHash( $this->mInfo );
+	}
+
+	/**
 	 * Overrides LibertyContent's default (which points at a plain 'edit.php' every
 	 * package is assumed to have) — Food has more than one content type
 	 * (FoodComponent/FoodAssembly), same reason FoodComponent overrides this too.
