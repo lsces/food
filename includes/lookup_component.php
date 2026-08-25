@@ -66,6 +66,10 @@ if( $shopId > 0 ) {
 // xkey_ext column). Lets edit_movement.tpl label the count-mode option with the
 // component's actual category rather than a generic "count" — has_sgl stays a
 // separate field since the flag can exist with no note yet.
+//
+// display_url (added 2026-08-25 for list_components.tpl's own dropdown): the
+// two receipt/assembly callers ignore it, same as the other harmless extra
+// fields noted above.
 $rows = $gBitDb->getArray(
 	"SELECT FIRST 30 lc.content_id, lc.title,
 			( SELECT FIRST 1 sup.title FROM liberty_xref x
@@ -86,6 +90,11 @@ $rows = $gBitDb->getArray(
 	 ORDER BY lc.title",
 	$bindVars
 );
+
+foreach( $rows as &$row ) {
+	$row['display_url'] = FoodComponent::getDisplayUrlFromHash( $row );
+}
+unset( $row );
 
 header( 'Content-Type: application/json' );
 echo json_encode( array_values( $rows ?? [] ) );
