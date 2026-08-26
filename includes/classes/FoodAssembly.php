@@ -440,6 +440,27 @@ class FoodAssembly extends LibertyContent {
 	}
 
 	/**
+	 * Take this meal's ingredient quantities out of REM a second time — for a guest
+	 * at dinner, where the same recipe is being cooked twice but only one
+	 * FoodAssembly (one set of nutrition-tracked ingredient lines) needs to exist.
+	 * Unlike copy_assembly.php (a genuinely separate meal, on another date), this
+	 * doesn't create a second assembly or add any ingredient rows — nothing on this
+	 * meal's own item list changes, so there's no xkey_ext line to stash an actual-
+	 * delta on for a later reversal the way addItem()'s callers do. If the extra
+	 * portion needs restocking afterward (guest cancels, food not eaten), that's a
+	 * manual correction via FoodMovement, same as any other REM adjustment outside
+	 * the addItem()/removeItem()/updateItem() bookkeeping.
+	 */
+	public function takeSecondPortion(): void {
+		$this->StartTrans();
+		$movement = new FoodMovement();
+		foreach( $this->getItems() as $item ) {
+			$movement->adjustComponentRem( (int)$item['component_content_id'], -(float)$item['quantity'] );
+		}
+		$this->CompleteTrans();
+	}
+
+	/**
 	 * Remove every ingredient row of one meal-type item code for this assembly —
 	 * used by the importer to rebuild an existing meal's item list from scratch each
 	 * run rather than trying to diff it (safe: re-running with unchanged source data

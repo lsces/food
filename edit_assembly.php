@@ -87,6 +87,15 @@ if( !empty( $_REQUEST['remove_xref_id'] ) ) {
 	header( 'Location: '.FOOD_PKG_URL.'view_day.php?date='.$dayDateStr );
 	die;
 
+} elseif( !empty( $_REQUEST['second_take'] ) ) {
+	// Guest for dinner — see FoodAssembly::takeSecondPortion()'s docblock. Gated by
+	// the same verifyUpdatePermission() already checked above for this whole page,
+	// same convention add_assembly_item.php's REM decrement uses (no separate
+	// stock permission).
+	$gContent->takeSecondPortion();
+	header( 'Location: '.FOOD_PKG_URL.'edit_assembly.php?content_id='.$gContent->mContentId.'&second_take_done=1' );
+	die;
+
 } elseif( !empty( $_REQUEST['save'] ) ) {
 	$newType = $_REQUEST['meal_type'] ?? null;
 	if( $newType && $newType !== $gContent->getMealType() ) {
@@ -141,5 +150,6 @@ $gBitSmarty->assign( 'items',         $gContent->getItems() );
 $gBitSmarty->assign( 'dateFixed',     $dateFixed );
 $gBitSmarty->assign( 'timeDisplay',   $timeDisplay );
 $gBitSmarty->assign( 'errors',        $errors );
+$gBitSmarty->assign( 'secondTakeDone', !empty( $_REQUEST['second_take_done'] ) );
 
 $gBitSystem->display( 'bitpackage:food/edit_assembly.tpl', KernelTools::tra( 'Edit' ).' '.FoodAssembly::mealTypeLabel( $mealType ?? '' ), [ 'display_mode' => 'edit' ] );

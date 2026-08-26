@@ -1,9 +1,17 @@
 {strip}
 <div class="edit food">
 	<div class="header">
+		{if $gContent->hasUpdatePermission()}
+			<div class="floaticon">
+				<a title="{tr}Take a second portion from the pantry{/tr}" href="{$smarty.const.FOOD_PKG_URL}edit_assembly.php?content_id={$gContent->mContentId}&amp;second_take=1" onclick="return confirm('{tr}Take a second portion of every ingredient in this meal out of the pantry, for an extra guest?{/tr}')">{biticon ipackage="icons" iname="contact-new-symbolic" iexplain="Take Second Portion From Pantry"}</a>
+			</div>
+		{/if}
 		<h1>{tr}Edit{/tr} {$mealLabel|escape}</h1>
 	</div>
 	<div class="body">
+		{if $secondTakeDone}
+			{formfeedback success="Second portion taken from the pantry."}
+		{/if}
 		{formfeedback error=$errors}
 
 		{form id="editAssemblyForm"}
