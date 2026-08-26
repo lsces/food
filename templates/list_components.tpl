@@ -53,7 +53,7 @@
 			</tbody>
 		</table>
 
-		<nav>
+		<nav class="bitnav-pager">
 			{pagination}
 		</nav>
 
