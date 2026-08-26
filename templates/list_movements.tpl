@@ -39,9 +39,7 @@
 			</tbody>
 		</table>
 
-		<nav class="bitnav-pager">
-			{pagination}
-		</nav>
+		{pagination}
 	</section>
 </div>
 {/strip}

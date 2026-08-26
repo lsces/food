@@ -44,9 +44,7 @@
 			</tbody>
 		</table>
 
-		<nav class="bitnav-pager">
-			{pagination find=$find|default:'' sup=$selectedShop|default:''}
-		</nav>
+		{pagination find=$find|default:'' sup=$selectedShop|default:''}
 	</section>
 </div>
 {/strip}
