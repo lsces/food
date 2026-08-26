@@ -584,6 +584,40 @@ class FoodAssembly extends LibertyContent {
 	}
 
 	/**
+	 * Calendar day-grid cell content for one meal — see LibertyContent::getContentList()'s
+	 * "Optional per-content-type override" comment for the hook this implements (same one
+	 * HealthDay::getDayCellHtml() uses). Step 1 only, calendar/day view: one meal per cell,
+	 * "MealType: item, item, item" then a totals line (kcal/fibre/5AD) — the consolidated
+	 * one-tile-per-day version for month/week views (see project_food_package_scoping
+	 * memory) is a separate, later step, deliberately not this method's job.
+	 *
+	 * @param  array $pHash  Row hash from getContentList() — content_id and (already
+	 *                       computed by the caller) display_url are what's used here.
+	 * @return string  Empty if this meal has no type or no items (shouldn't happen for a
+	 *                 real assembly, but matches HealthDay's own empty-tile convention).
+	 */
+	public static function getDayCellHtml( array $pHash ): string {
+		$assembly = new self( null, (int)( $pHash['content_id'] ?? 0 ) );
+		$mealType = $assembly->getMealType();
+		if( !$mealType ) {
+			return '';
+		}
+		$data = $assembly->getItemsWithNutrition();
+		if( !$data['items'] ) {
+			return '';
+		}
+		$itemList = implode( ', ', array_map( fn( $i ) => $i['component_title'], $data['items'] ) );
+		$totals = $data['total'];
+		$lines = [
+			self::mealTypeLabel( $mealType ).': '.$itemList,
+			$totals['CAL'].' · '.$totals['FIBR'].' fibre · '.$totals['5AD'].' 5AD',
+		];
+		$body = implode( '<br/>', array_map( 'htmlspecialchars', $lines ) );
+		$url  = htmlspecialchars( $pHash['display_url'] ?? '#' );
+		return "<div class=\"calfoodassembly\"><a href=\"$url\">$body</a></div>";
+	}
+
+	/**
 	 * Meal-type item codes already used by some *other* FoodAssembly on the same
 	 * calendar day as $pEventTime — the day-uniqueness check ("a day should only see
 	 * one of each intake type", flagged 2026-08-16, no generic bitweaver hook for
