@@ -74,26 +74,56 @@ if( !empty( $_REQUEST['fAddComponent'] ) ) {
 			die;
 		}
 
-		// Quantity left blank — fall back to the component's own declared WT/VOL
-		// value (its quantity group's "1 pack = Ng" figure, e.g. a sandwich's real
-		// pack weight) rather than forcing a retype of a number the component
-		// already records. add_assembly_item.tpl's JS does this same lookup
-		// client-side on selection, but the server-side fallback here covers a
-		// submission that reaches this point with xkey still empty regardless.
+		// No FIRST/ORDER BY needed — WT/VOL/SGL are registered multiple=-2
+		// (mutually exclusive) on foodcomponent's quantity group, so at most one
+		// of WT/VOL can ever be set on a real component.
+		$baseRow = $gBitDb->getRow(
+			"SELECT `item`, `xkey` FROM `".BIT_DB_PREFIX."liberty_xref`
+			 WHERE `content_id` = ? AND `item` IN ('WT','VOL')",
+			[ $compId ]
+		);
+
+		$mode = ( $_REQUEST['qty_mode'] ?? 'base' ) === 'sgl' ? 'sgl' : 'base';
+
+		// Quantity left blank — fall back to a sensible default rather than forcing
+		// a retype of a number that's either already on record (base mode: the
+		// component's own "1 pack = Ng" WT/VOL figure) or obvious (sgl mode: one
+		// unit). add_assembly_item.tpl's JS does this same default client-side on
+		// selection, but the server-side fallback here covers a submission that
+		// reaches this point with xkey still empty regardless.
 		if( $qty === '' ) {
-			// No FIRST/ORDER BY needed — WT/VOL/SGL are registered multiple=-2
-			// (mutually exclusive) on foodcomponent's quantity group, so at most
-			// one of WT/VOL can ever be set on a real component.
-			$qty = (string)$gBitDb->getOne(
-				"SELECT u.`xkey` FROM `".BIT_DB_PREFIX."liberty_xref` u
-				 WHERE u.`content_id` = ? AND u.`item` IN ('WT','VOL') AND u.`xkey` IS NOT NULL AND u.`xkey` <> ''",
-				[ $compId ]
-			);
+			$qty = $mode === 'sgl' ? '1' : (string)( $baseRow['xkey'] ?? '' );
 		}
 
 		if( !is_numeric( $qty ) || (float)$qty <= 0 ) {
 			$errors[] = KernelTools::tra( 'Quantity must be a positive number — this component has no declared weight/volume to default from.' );
 		} else {
+			// The list itself only ever stores/edits a plain gram figure — the
+			// user's *actual* weight eaten, adjustable afterward regardless of how
+			// the line was originally added (see this file's own docblock/session
+			// notes: meals need the real weight, unlike receipts' nominal-pack-size
+			// guestimates, so an sgl-mode add is a one-off conversion at entry
+			// time, not something the stored line remembers or needs to track).
+			// Same conversion math as FoodMovement::addComponentLine()'s own sgl
+			// branch: a count times the component's own declared per-unit weight.
+			if( $mode === 'sgl' ) {
+				$hasSgl = (bool)$gBitDb->getOne(
+					"SELECT 1 FROM `".BIT_DB_PREFIX."liberty_xref` WHERE `content_id` = ? AND `item` = 'SGL'",
+					[ $compId ]
+				);
+				if( !$hasSgl ) {
+					$errors[] = KernelTools::tra( 'This component is not flagged for count-based (SGL) tracking.' );
+				} elseif( !$baseRow || !is_numeric( $baseRow['xkey'] ?? null ) ) {
+					$errors[] = KernelTools::tra( 'This component has no declared weight/volume to convert a count through.' );
+				} else {
+					$grams = (float)$qty * (float)$baseRow['xkey'];
+				}
+			} else {
+				$grams = (float)$qty;
+			}
+		}
+
+		if( !$errors && isset( $grams ) ) {
 			$nextXorder = (int)$gBitDb->getOne(
 				"SELECT COALESCE( MAX(x.`xorder`) + 1, 1 ) FROM `".BIT_DB_PREFIX."liberty_xref` x
 				 WHERE x.`content_id` = ? AND x.`item` = ?",
@@ -104,10 +134,10 @@ if( !empty( $_REQUEST['fAddComponent'] ) ) {
 			// takes it out of the pantry balance the same way a receipt puts it in,
 			// clamped by adjustComponentRem() itself (empty pantry, or its dust
 			// threshold near an empty pack — see that method's docblock). The
-			// *actual* delta applied (not the nominal $qty) is stashed on the line
+			// *actual* delta applied (not the nominal $grams) is stashed on the line
 			// via xkey_ext, so removeItem()/expunge() can restock exactly this much
 			// later rather than over-crediting stock that was never really there.
-			$roundedQty = (float)round( (float)$qty );
+			$roundedQty = (float)round( $grams );
 			$actualDelta = ( new FoodMovement() )->adjustComponentRem( $compId, -$roundedQty );
 
 			$xrefObj = new LibertyXref();

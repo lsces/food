@@ -135,16 +135,19 @@
 	function setQtyModeOptions(quantityItem, hasSgl, sglNote) {
 		var unitLabel = quantityItem === 'VOL' ? 'ml' : (quantityItem === 'WT' ? 'g' : 'g/ml');
 		$qtyMode.empty();
-		$qtyMode.append($('<option>').val('base').text(unitLabel));
 		if (hasSgl) {
-			// Labelled with the component's own SGL note (e.g. "Ready Meal", "Pack
-			// of 8" — see list_pantry.php's Note column, same xkey_ext field) rather
-			// than a generic "count", so the two-tab workflow (list_components in
-			// one tab, this receipt in the other) doesn't need cross-checking which
-			// category a component was tagged with. Falls back to "Count" if SGL is
-			// flagged but no note has been added yet.
+			// Appended first (and so selected by default, no explicit .prop('selected')
+			// needed) - SGL is the common case, WT/VOL the exception, and defaulting to
+			// SGL when it's available saves a click on every normal add. Labelled with
+			// the component's own SGL note (e.g. "Ready Meal", "Pack of 8" — see
+			// list_pantry.php's Note column, same xkey_ext field) rather than a generic
+			// "count", so the two-tab workflow (list_components in one tab, this receipt
+			// in the other) doesn't need cross-checking which category a component was
+			// tagged with. Falls back to "Count" if SGL is flagged but no note has been
+			// added yet.
 			$qtyMode.append($('<option>').val('sgl').text(sglNote || 'Count'));
 		}
+		$qtyMode.append($('<option>').val('base').text(unitLabel));
 	}
 
 	$input.trigger('focus');
@@ -171,7 +174,7 @@
 				$dd.empty();
 				if (!data.length) return;
 				$.each(data, function(i, row) {
-					var label = row.supplier ? row.title + ' (' + row.supplier + ')' : row.title;
+					var label = row.supplier ? row.title + ' [' + row.supplier + ']' : row.title;
 					$dd.append($('<li>').append(
 						$('<a>').attr('href','#')
 							.data('id', row.content_id).data('label', label)

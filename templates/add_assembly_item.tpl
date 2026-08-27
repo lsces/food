@@ -27,10 +27,13 @@
 			</div>
 
 			<div class="form-group">
-				{formlabel label="Quantity (g/ml)" for="xkey"}
+				{formlabel label="Quantity" for="xkey"}
 				{forminput}
-					<input type="text" class="form-control" name="xkey" id="xkey"
+					<input type="text" class="form-control" name="xkey" id="xkey" style="width:6em;display:inline-block"
 						value="{$smarty.request.xkey|default:''|escape}" />
+					<select class="form-control" name="qty_mode" id="qty_mode" style="width:9em;display:inline-block">
+						<option value="base">{tr}g/ml{/tr}</option>
+					</select>
 				{/forminput}
 			</div>
 
@@ -46,16 +49,30 @@
 (function($) {
 	var timer;
 	var seq = 0; // request-generation counter — see reqId below
-	var $input = $('#component_title');
-	var $dd    = $('#comp_dropdown');
-	var $id    = $('#component_id');
-	var $qty   = $('#xkey');
+	var $input   = $('#component_title');
+	var $dd      = $('#comp_dropdown');
+	var $id      = $('#component_id');
+	var $qty     = $('#xkey');
+	var $qtyMode = $('#qty_mode');
+
+	// Same shape as edit_movement.tpl's own setQtyModeOptions() — see that
+	// file's comment for why SGL is appended first (selected by default) when
+	// available.
+	function setQtyModeOptions(quantityItem, hasSgl, sglNote) {
+		var unitLabel = quantityItem === 'VOL' ? 'ml' : (quantityItem === 'WT' ? 'g' : 'g/ml');
+		$qtyMode.empty();
+		if (hasSgl) {
+			$qtyMode.append($('<option>').val('sgl').text(sglNote || 'Count'));
+		}
+		$qtyMode.append($('<option>').val('base').text(unitLabel));
+	}
 
 	$input.on('input', function() {
 		// Any manual retyping invalidates whatever was previously selected —
 		// otherwise a stale component_id could silently survive a hand-edit and
 		// point at the wrong (same-titled, different-supplier) component.
 		$id.val('');
+		setQtyModeOptions(null, false, null);
 		var q = $(this).val();
 		clearTimeout(timer);
 		$dd.hide().empty();
@@ -73,12 +90,14 @@
 				$dd.empty();
 				if (!data.length) return;
 				$.each(data, function(i, row) {
-					var label = row.supplier ? row.title + ' (' + row.supplier + ')' : row.title;
+					var label = row.supplier ? row.title + ' [' + row.supplier + ']' : row.title;
 					$dd.append($('<li>').append(
 						$('<a>').attr('href','#')
 							.data('id', row.content_id)
 							.data('label', label)
 							.data('qty', row.default_qty)
+							.data('quantity-item', row.quantity_item).data('has-sgl', row.has_sgl)
+							.data('sgl-note', row.sgl_note)
 							.text(label)
 					));
 				});
@@ -91,11 +110,17 @@
 		e.preventDefault();
 		$input.val($(this).data('label'));
 		$id.val($(this).data('id'));
+		var hasSgl = $(this).data('has-sgl');
+		setQtyModeOptions($(this).data('quantity-item'), hasSgl, $(this).data('sgl-note'));
 		// Only prefill an empty Quantity — never overwrite something already typed
 		// (e.g. picking a different supplier's version of an item after already
-		// entering a known real quantity).
-		var defaultQty = $(this).data('qty');
-		if (!$qty.val() && defaultQty) { $qty.val(defaultQty); }
+		// entering a known real quantity). SGL defaults to a single unit (the
+		// component's own WT/VOL pack weight isn't a meaningful count) rather than
+		// the "qty" data value, which is only ever the base-mode grams/ml figure.
+		if (!$qty.val()) {
+			var defaultQty = hasSgl ? 1 : $(this).data('qty');
+			if (defaultQty) { $qty.val(defaultQty); }
+		}
 		$dd.hide().empty();
 	});
 

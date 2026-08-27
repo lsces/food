@@ -85,7 +85,7 @@
 				$dd.empty();
 				if (!data.length) return;
 				$.each(data, function(i, row) {
-					var label = row.supplier ? row.title + ' (' + row.supplier + ')' : row.title;
+					var label = row.supplier ? row.title + ' [' + row.supplier + ']' : row.title;
 					$dd.append($('<li>').append(
 						$('<a>').attr('href', row.display_url).text(label)
 					));

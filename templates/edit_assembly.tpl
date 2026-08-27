@@ -73,7 +73,102 @@
 			</tbody>
 		</table>
 
-		<p><a class="btn btn-default" href="add_assembly_item.php?content_id={$gContent->mContentId}">{tr}Add Food Item{/tr}</a></p>
+		{form id="addComponentForm" ipackage="food" ifile="edit_assembly.php"}
+			<input type="hidden" name="content_id" value="{$gContent->mContentId}" />
+			<input type="hidden" name="component_id" id="component_id" value="" />
+			<div class="form-inline">
+				<div class="form-group" style="position:relative">
+					<input type="text" class="form-control" name="component_title" id="component_title"
+						autocomplete="off" placeholder="{tr}Food Item…{/tr}" />
+					<ul id="comp_dropdown" class="dropdown-menu"
+						style="display:none;position:absolute;width:390px;z-index:1000;max-height:220px;overflow-y:auto"></ul>
+				</div>
+				<div class="form-group">
+					<input type="text" class="form-control" name="xkey" id="xkey" placeholder="{tr}Quantity{/tr}" style="width:6em" />
+				</div>
+				<div class="form-group">
+					<select class="form-control" name="qty_mode" id="qty_mode" style="width:9em">
+						<option value="base">{tr}g/ml{/tr}</option>
+					</select>
+				</div>
+				<button type="submit" class="btn btn-primary" name="fAddComponent" value="1">{tr}Add{/tr}</button>
+			</div>
+			{formhelp note="Type to search existing food items, or enter a new title to create one. Where the same title exists from more than one shop, the supplier shows in brackets — pick the right one rather than retyping the plain title. Adding a line returns you straight here, ready for the next one."}
+		{/form}
 	</div>
 </div>
 {/strip}
+{if $gContent->isValid()}
+<script>
+(function($) {
+	var timer;
+	var seq = 0; // request-generation counter — same overlapping-response race
+	             // add_assembly_item.tpl/edit_movement.tpl were both fixed for.
+	var $input   = $('#component_title');
+	var $dd      = $('#comp_dropdown');
+	var $id      = $('#component_id');
+	var $qty     = $('#xkey');
+	var $qtyMode = $('#qty_mode');
+
+	// Same shape as edit_movement.tpl's own setQtyModeOptions().
+	function setQtyModeOptions(quantityItem, hasSgl, sglNote) {
+		var unitLabel = quantityItem === 'VOL' ? 'ml' : (quantityItem === 'WT' ? 'g' : 'g/ml');
+		$qtyMode.empty();
+		if (hasSgl) {
+			$qtyMode.append($('<option>').val('sgl').text(sglNote || 'Count'));
+		}
+		$qtyMode.append($('<option>').val('base').text(unitLabel));
+	}
+
+	$input.trigger('focus');
+
+	$input.on('input', function() {
+		$id.val('');
+		setQtyModeOptions(null, false, null);
+		var q = $(this).val();
+		clearTimeout(timer);
+		$dd.hide().empty();
+		if (q.length < 2) return;
+		var reqId = ++seq;
+		timer = setTimeout(function() {
+			$.getJSON('{$smarty.const.FOOD_PKG_URL}includes/lookup_component.php', {ldelim}q: q{rdelim}, function(data) {
+				if (reqId !== seq) return; // a newer request has since superseded this one
+				$dd.empty();
+				if (!data.length) return;
+				$.each(data, function(i, row) {
+					var label = row.supplier ? row.title + ' [' + row.supplier + ']' : row.title;
+					$dd.append($('<li>').append(
+						$('<a>').attr('href','#')
+							.data('id', row.content_id).data('label', label)
+							.data('quantity-item', row.quantity_item).data('has-sgl', row.has_sgl)
+							.data('sgl-note', row.sgl_note)
+							.text(label)
+					));
+				});
+				$dd.show();
+			});
+		}, 250);
+	});
+
+	$(document).on('mousedown', '#comp_dropdown a', function(e) {
+		e.preventDefault();
+		$input.val($(this).data('label'));
+		$id.val($(this).data('id'));
+		setQtyModeOptions($(this).data('quantity-item'), $(this).data('has-sgl'), $(this).data('sgl-note'));
+		$dd.hide().empty();
+		$qty.trigger('focus');
+	});
+
+	$input.on('blur', function() { setTimeout(function() { $dd.hide(); }, 150); });
+
+	$input.on('keydown', function(e) {
+		if (!$dd.is(':visible')) return;
+		var $links = $dd.find('a'), idx = $links.index($dd.find('li.active a'));
+		if (e.key === 'ArrowDown') { e.preventDefault(); $links.parent().removeClass('active'); $links.eq(idx + 1 < $links.length ? idx + 1 : 0).parent().addClass('active'); }
+		else if (e.key === 'ArrowUp') { e.preventDefault(); $links.parent().removeClass('active'); $links.eq(idx > 0 ? idx - 1 : $links.length - 1).parent().addClass('active'); }
+		else if (e.key === 'Enter') { var $a = $dd.find('li.active a'); if ($a.length) { e.preventDefault(); $a.trigger('mousedown'); } }
+		else if (e.key === 'Escape') { $dd.hide(); }
+	});
+}(jQuery));
+</script>
+{/if}

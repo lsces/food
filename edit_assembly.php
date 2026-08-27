@@ -69,6 +69,101 @@ if( !empty( $_REQUEST['remove_xref_id'] ) ) {
 		$errors['quantity'] = KernelTools::tra( 'Failed to update line.' );
 	}
 
+} elseif( !empty( $_REQUEST['fAddComponent'] ) ) {
+	// Inline add, same shape as edit_movement.php's own fAddComponent branch —
+	// stays on this page rather than bouncing out to add_assembly_item.php, so
+	// adding several ingredients in a row doesn't cost a page round-trip each
+	// time. add_assembly_item.php/.tpl are left in place as a still-working
+	// fallback, not replaced.
+	global $gBitDb;
+	$title  = trim( $_REQUEST['component_title'] ?? '' );
+	$compId = (int)( $_REQUEST['component_id'] ?? 0 );
+	$qty    = trim( $_REQUEST['xkey'] ?? '' );
+
+	if( $title === '' ) {
+		$errors['add'] = KernelTools::tra( 'Food item title is required.' );
+	} else {
+		if( $compId ) {
+			$valid = (bool)$gBitDb->getOne(
+				"SELECT 1 FROM `".BIT_DB_PREFIX."liberty_content` WHERE `content_id` = ? AND `content_type_guid` = 'foodcomponent'",
+				[ $compId ]
+			);
+			if( !$valid ) {
+				$compId = 0;
+			}
+		}
+		if( !$compId ) {
+			$compId = (int)$gBitDb->getOne(
+				"SELECT lc.`content_id` FROM `".BIT_DB_PREFIX."liberty_content` lc
+				 WHERE lc.`content_type_guid` = 'foodcomponent' AND lc.`title` = ?",
+				[ $title ]
+			);
+		}
+
+		if( !$compId ) {
+			header( 'Location: '.FOOD_PKG_URL.'edit_component.php?title='.urlencode( $title ) );
+			die;
+		}
+
+		$baseRow = $gBitDb->getRow(
+			"SELECT `item`, `xkey` FROM `".BIT_DB_PREFIX."liberty_xref`
+			 WHERE `content_id` = ? AND `item` IN ('WT','VOL')",
+			[ $compId ]
+		);
+
+		$mode = ( $_REQUEST['qty_mode'] ?? 'base' ) === 'sgl' ? 'sgl' : 'base';
+		if( $qty === '' ) {
+			$qty = $mode === 'sgl' ? '1' : (string)( $baseRow['xkey'] ?? '' );
+		}
+
+		if( !is_numeric( $qty ) || (float)$qty <= 0 ) {
+			$errors['add'] = KernelTools::tra( 'Quantity must be a positive number — this component has no declared weight/volume to default from.' );
+		} else {
+			if( $mode === 'sgl' ) {
+				$hasSgl = (bool)$gBitDb->getOne(
+					"SELECT 1 FROM `".BIT_DB_PREFIX."liberty_xref` WHERE `content_id` = ? AND `item` = 'SGL'",
+					[ $compId ]
+				);
+				if( !$hasSgl ) {
+					$errors['add'] = KernelTools::tra( 'This component is not flagged for count-based (SGL) tracking.' );
+				} elseif( !$baseRow || !is_numeric( $baseRow['xkey'] ?? null ) ) {
+					$errors['add'] = KernelTools::tra( 'This component has no declared weight/volume to convert a count through.' );
+				} else {
+					$grams = (float)$qty * (float)$baseRow['xkey'];
+				}
+			} else {
+				$grams = (float)$qty;
+			}
+		}
+
+		if( !$errors && isset( $grams ) ) {
+			$nextXorder = (int)$gBitDb->getOne(
+				"SELECT COALESCE( MAX(x.`xorder`) + 1, 1 ) FROM `".BIT_DB_PREFIX."liberty_xref` x
+				 WHERE x.`content_id` = ? AND x.`item` = ?",
+				[ $gContent->mContentId, $gContent->getMealType() ]
+			) ?: 1;
+
+			$roundedQty  = (float)round( $grams );
+			$actualDelta = ( new FoodMovement() )->adjustComponentRem( $compId, -$roundedQty );
+
+			$xrefObj = new \Bitweaver\Liberty\LibertyXref();
+			$xrefObj->mContentTypeGuid = 'foodassembly';
+			$pHash = [
+				'content_id' => $gContent->mContentId,
+				'item'       => $gContent->getMealType(),
+				'xorder'     => $nextXorder,
+				'xref'       => $compId,
+				'xkey'       => (string)(int)$roundedQty,
+				'xkey_ext'   => (string)( -$actualDelta ),
+			];
+			if( $xrefObj->store( $pHash ) ) {
+				header( 'Location: '.FOOD_PKG_URL.'edit_assembly.php?content_id='.$gContent->mContentId );
+				die;
+			}
+			$errors['add'] = KernelTools::tra( 'Failed to store food item.' );
+		}
+	}
+
 } elseif( !empty( $_REQUEST['delete'] ) ) {
 	// Deletes the whole meal — restocks every ingredient's REM first (see
 	// FoodAssembly::expunge()). Confirmation happens client-side
@@ -126,11 +221,15 @@ if( !empty( $_REQUEST['remove_xref_id'] ) ) {
 		}
 	}
 	if( !$errors ) {
-		// Back to the meal, not back to this same edit page — there's nothing left
-		// to do here once meal type/time are saved (ingredient add/edit/remove are
-		// each their own separate page with their own redirect back to here, not
-		// this button).
-		header( 'Location: '.FOOD_PKG_URL.'view_assembly.php?content_id='.$gContent->mContentId );
+		// Back to the meal once it actually has items - "Add Food Item" only lives
+		// on this edit page (not view_assembly.php), so a brand-new/still-empty
+		// meal needs to stay here after saving type/time, or the only way back to
+		// it is a manual re-navigation. Once there's at least one item, there's
+		// nothing left to do on this page (ingredient add/edit/remove are each
+		// their own separate page with their own redirect back to here, not this
+		// button), so view is the right landing spot again.
+		$target = $gContent->getItems() ? 'view_assembly.php' : 'edit_assembly.php';
+		header( 'Location: '.FOOD_PKG_URL.$target.'?content_id='.$gContent->mContentId );
 		die;
 	}
 }
