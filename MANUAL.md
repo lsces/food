@@ -162,6 +162,20 @@ date without a day object. Day-uniqueness (one of each meal type per real day) i
 hand in `changeMealType()`/`createForDay()` — no generic liberty hook exists for this kind of
 cross-record uniqueness check.
 
+**`FoodDay` (calendar integration only, zero storage)** — not a `LibertyContent` subclass, no
+`liberty_content` row ever created, does not contradict "Day is a report, not a record" above.
+A plain class whose static `getContentList()` computes kcal/fibre/5AD day-summary rows fresh from
+real `FoodAssembly` data on every call; `register()` self-installs just the type's metadata into
+`liberty_content_types` (idempotent, same call every real `LibertyContent` subclass's constructor
+already makes) so Calendar can discover it through the normal registry, generically — see
+`calendar/MANUAL.md`'s `Calendar::getEvents()` virtual-type hook, which this motivated. Deliberately
+naive `gmmktime()` timestamps, not BST-aware `BitDate` conversion — Calendar's own hour-slot
+matching needs the naive value to line up with the day-view slots it's summarising.
+
+`FoodAssembly::getDayCellHtml()` — the actual calendar-grid tile content, via `LibertyContent`'s
+optional per-content-type hook (see `liberty/MANUAL.md`). One tile per meal (`"MealType: item,
+item, item"` plus a kcal/fibre/5AD line), linking to `view_assembly.php`.
+
 **`RECIPE`/`FAVOURITE`** (reusable dish / reusable named combo) share the same shape and the same
 `type` group as the five diary meal-types — not registered/built yet, only the diary types exist
 today.
@@ -190,6 +204,20 @@ chosen date, same meal type, time-of-day carried over from the source `event_tim
 (`% 86400`, no timezone math — it's just shifting which day, not changing what the time means).
 Same day-uniqueness check as `changeMealType()`. Built specifically to speed up backfilling a
 repeating pattern (e.g. the same breakfast most days) — full-page retyping was "taking an age".
+
+### Second-portion action
+
+`FoodAssembly::takeSecondPortion()` (`edit_assembly.php`'s "second helping" action) takes the
+meal's own ingredient quantities out of `REM` a second time, without duplicating the meal or its
+ingredient rows — for cooking the same recipe twice in one sitting. Click-repeatable, no separate
+multi-portion UI.
+
+### `getDisplayUrl()`
+
+`FoodAssembly::getDisplayUrl()`/`getDisplayUrlFromHash()` — `index.php`'s `content_id` dispatcher
+calls this to pick a redirect target; without it, a bare content_id link fell through to
+`LibertyContent`'s generic default instead of `view_assembly.php`. Mirrors the same override
+`FoodComponent`/`FoodMovement` already have.
 
 ### Nutrition display
 
@@ -232,13 +260,25 @@ transaction —
   deleting the content record — there's no bulk shortcut, since each line might resolve to a
   different delta (`base` vs `sgl` mode).
 
-**Component search** (`includes/lookup_component.php`, shared by `edit_movement.tpl` and
-`add_assembly_item.tpl`): returns `content_id`, `supplier` (disambiguates same-titled components
-from different shops — a real, common case since supplier lives in its own `SUP` xref, not the
-title), `default_qty` (the component's own `WT`/`VOL` value, prefills Quantity), `quantity_item`/
-`has_sgl`/`sgl_note` (drive the entry-mode picker), and an optional `?shop=<content_id>` filter
-(scopes results to components already tagged with that supplier — opt-in, no shop selected means
-unfiltered).
+**Component search** (`includes/lookup_component.php`, shared by `edit_movement.tpl`,
+`add_assembly_item.tpl`, and `edit_assembly.tpl`'s inline add — see below): returns `content_id`,
+`supplier` (disambiguates same-titled components from different shops — a real, common case since
+supplier lives in its own `SUP` xref, not the title), `default_qty` (the component's own `WT`/
+`VOL` value, prefills Quantity), `quantity_item`/`has_sgl`/`sgl_note` (drive the entry-mode
+picker), `display_url`, and an optional `?shop=<content_id>` filter (scopes results to components
+already tagged with that supplier — opt-in, no shop selected means unfiltered). `list_components.php`'s
+own find box uses the same live typeahead (a match can be clicked straight through to its view
+page instead of submit-then-scan) — three near-identical JS copies of this widget now exist
+(`list_components`/`edit_movement`/`edit_assembly`), a real duplication flagged in THOUGHTS.txt
+for extraction once `food_recipe` becomes the 4th real call site, not yet done.
+
+**Inline ingredient add** (`edit_assembly.tpl`, mirrors `edit_movement.tpl`'s own pattern) — the
+same search-dropdown + `qty_mode` picker as a new `fAddComponent` branch in `edit_assembly.php`,
+so a meal gets the same stay-on-page multi-item-add flow receipts already had, instead of
+bouncing out to `add_assembly_item.php` per ingredient. `SGL` entries convert to grams via the
+component's own declared `WT`/`VOL` weight before storage — the stored line is always a plain,
+later-editable gram figure; `SGL` is purely an entry-time convenience. `add_assembly_item.php`/
+`.tpl` stay in place as a working fallback, not replaced.
 
 ## UI conventions
 
@@ -257,6 +297,19 @@ unfiltered).
   ISO values on submit.
 - Icon-only inline actions use `class="btn btn-link"` (no button box/border), matching
   `comments.tpl`/Stock's print buttons — not `btn-default`, which reads as a heavier action.
+- **Supplier/shop names shown as `[brackets]`, not `(parens)`** (`list_pantry.tpl`,
+  `list_components.tpl`, `add_assembly_item.tpl`, `edit_movement.tpl`) — deliberate, not
+  stylistic: Samsung-sourced titles already carry brand names in parens (e.g.
+  `"Cheese Slice(Morrisons)"`), so a same-bracket shop suffix would read ambiguously.
+- `edit_movement.tpl`'s `qty_mode` dropdown lists `SGL` before `WT`/`VOL` — count-based entry
+  (the common case) is the default without an extra click every time.
+
+## `index.php`
+
+A real landing page, not a bare alias for `view_day.php`. Same `.bitnav` bar pattern as
+`health/index.php`'s General tab: date picker + Day (`view_day.php`) + Calendar
+(`calendar/package_page.php?pkg=food`, tracking the picker live) on the left, Food Items/Pantry/
+Receipts on the right. Just the nav bar for now — a summary/dashboard content section is deferred.
 
 ## Not yet built
 
