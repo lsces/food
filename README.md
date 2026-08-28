@@ -11,8 +11,9 @@ Health users who'd like to own a copy of their own food data, not as a finished 
 
 > **Scope note:** this package only covers food/nutrition — the food-related slice of a Samsung
 > Health export. The rest of that export (weight, blood pressure, sleep, exercise, heart rate, and
-> so on) is out of scope here by design and is planned as a separate companion `health` package
-> (see "What's planned" below), not something Food will grow into over time.
+> so on) is out of scope here by design — see the separate companion
+> [`health`](https://github.com/lsces/health) package instead, not something Food will grow into
+> over time.
 
 ## Why this exists
 
@@ -86,8 +87,9 @@ Roughly in order:
   and health data private — this depends on cross-domain publishing machinery that doesn't exist
   anywhere in the underlying Bitweaver framework yet, so it's a longer-term piece
 
-A companion `health` package (weight, blood pressure, sleep, exercise, heart rate — the rest of
-the Samsung Health export) is planned but not yet started.
+The companion [`health`](https://github.com/lsces/health) package (weight, blood pressure, sleep,
+exercise, heart rate — the rest of the Samsung Health export) is built and active — see its own
+README for what it covers.
 
 See `MANUAL.md` for the full current picture — schema, how each piece actually works, and a more
 complete "not yet built" list than the summary above.
