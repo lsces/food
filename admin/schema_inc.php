@@ -99,13 +99,13 @@ $xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,
 $xrefTypes[] = "INSERT INTO `{$X}liberty_xref_group` (`x_group`,`content_type_guid`,`title`,`sort_order`,`role_id`,`type_href`,`template`) VALUES ('nutrition','foodcomponent','Nutrition',3,3,'','nutrition')";
 
 // Scalar nutrition items — worth individually browsing/sorting/tidying, own row each.
-// FIBR deliberately promoted alongside PROT (Samsung's own app buries it; Lester rates
+// FIBR deliberately promoted alongside PROT (Samsung's own app buries it; the author rates
 // it more useful day-to-day). SOD kept scalar rather than folded into a mineral blob —
 // also feeds the Health package's blood-pressure tracking.
 //
 // sort_order (added 2026-08-21, previously left at the column's default 0 for every
 // item here — i.e. never actually finished) matches the layout of a UK nutrition
-// label, the shape of the tables Lester is hand-copying figures from: Calories, Fat
+// label, the shape of the tables the author is hand-copying figures from: Calories, Fat
 // (total/saturated), Carbohydrate, Sugar, Fibre, Protein, Salt. Only takes effect once
 // LibertyXrefType::loadContent()'s xref-row query orders by it — see the liberty-level
 // fix in the same commit; before that fix this column existed but every consumer's
@@ -219,7 +219,7 @@ $xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,
 // ── foodassembly group (sort_order=0: 'type', not 'items' — 'items' reads as
 // confusingly close to liberty_xref_item itself) — a meal instance's ingredient
 // list. No separate classification xref — the item code itself IS the meal type
-// (confirmed with Lester 2026-08-16: collapse classification+line-items into one
+// (confirmed with the author 2026-08-16: collapse classification+line-items into one
 // mechanism, rather than a single classifying xref plus a separate generic 'ITEM'
 // line-item type). A Breakfast assembly's rows are all item='BREAKFAST'; which code
 // populated tells you the type, nothing else needed. Each row: xref=the

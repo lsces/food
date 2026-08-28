@@ -53,7 +53,7 @@ $offset     = $listHash['offset'];
 // have a NULL xkey ("tracked by weight, real figure never entered") — validated
 // numeric in PHP rather than risking a Firebird CAST error on that gap.
 //
-// SGL's own xkey_ext (2026-08-22, Lester's own find) doubles as a free-text category
+// SGL's own xkey_ext (2026-08-22, the author's own find) doubles as a free-text category
 // note — e.g. "Ready Meal" — same spare-column reuse as REM's xkey_ext review tag
 // (see admin/schema_inc.php), just a different item/purpose. Shown as its own column;
 // blank for anything not SGL-flagged or not yet noted.

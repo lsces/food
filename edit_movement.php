@@ -9,7 +9,7 @@
  * The add-component handling used to be its own page (add_movement_component.php,
  * mirroring add_assembly_item.php's separate-page pattern) — folded in here
  * 2026-08-20 because tidying a real receipt with several items meant a full page
- * navigation per line, which Lester flagged as too slow. Landing back on this same
+ * navigation per line, which the author flagged as too slow. Landing back on this same
  * page (rather than a separate view) after each add is the actual fix; the
  * component-picker JS itself is unchanged. Still delegates the actual insert to
  * FoodMovement::addComponentLine() (not a generic add_xref.php form) so the

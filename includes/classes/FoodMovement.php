@@ -433,7 +433,7 @@ class FoodMovement extends LibertyContent {
 	 *  component's own declared WT/VOL portion size get zeroed rather than left
 	 *  as an untrackable dust remainder — a shrinking pack rarely gets weighed
 	 *  out to the exact last gram, so a REM of "12g" lingering forever is noise,
-	 *  not a real usable amount (Lester, 2026-08-24). Applies to any negative
+	 *  not a real usable amount (the author, 2026-08-24). Applies to any negative
 	 *  delta through this method, receipt reversals included, not just meal
 	 *  consumption — the same "too small to be real" reasoning holds either way.
 	 *  A component with no declared WT/VOL falls back to a plain floor-at-zero

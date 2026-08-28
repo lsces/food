@@ -220,23 +220,23 @@ function foodSupplierLookup(): array {
  * Three-stage match, in order:
  *   1. Plain exact match against a real shop title (e.g. "(Morrisons)" == "Morrisons")
  *      — pure duplication of what SUP now encodes structurally, safe to trim from the
- *      title (Lester: "the (Morrisons) needs to stay in the .csv [source] it would be
+ *      title (the author: "the (Morrisons) needs to stay in the .csv [source] it would be
  *      nice to trim from the title").
  *   2. Explicit aliases for own-brand sub-labels that don't literally contain their
  *      parent chain's name (e.g. Lidl's "Chef Select" range, "By Sainsbury's", "M&S
- *      Food" — the latter added as the same class of case as the two Lester named, not
+ *      Food" — the latter added as the same class of case as the two the author named, not
  *      explicitly confirmed, worth a spot-check).
  *   3. Substring containment against every known shop title, covering most retailer
  *      own-brand sub-lines for free ("Tesco Finest" contains "Tesco", "Waitrose
  *      Essential" contains "Waitrose") without needing an alias entry per sub-brand.
  * Stages 2 and 3 carry real information beyond "which shop" (the sub-brand/range name)
- * — Lester's earlier call was explicit that this stays in the title ("the 'own brand'
+ * — the author's earlier call was explicit that this stays in the title ("the 'own brand'
  * bit just needs leaving in the title"), only a bare shop-name match is redundant
  * enough to trim.
  *
  * Most parenthetical text won't match anything at all — manufacturer brands
  * (Heinz, Cadbury...) and restaurant chains (McDonald's, KFC...) are real, common, and
- * deliberately not shops (Lester: "worry about brands later") — that's the expected
+ * deliberately not shops (the author: "worry about brands later") — that's the expected
  * majority outcome, not a gap to flag or curate.
  *
  * @return array{content_id:int,trim:bool}|null  Matched shop + whether the matched
@@ -542,7 +542,7 @@ function foodImportFoodInfoRow( array $pRow, int $pRowNum, array &$pResult, bool
 	// FIBR-missing and no-usable-basis curation checks + the note itself are computed
 	// up front now (folded into the single store() call above) — REM just needs the
 	// flag row itself here. xkey_ext='REVIEW' is the outstanding-work flag itself,
-	// "this needs review", not "reviewed and accepted" (confirmed with Lester
+	// "this needs review", not "reviewed and accepted" (confirmed with the author
 	// 2026-08-16 after a few rounds of me having the polarity backwards; renamed from
 	// 'CORRECT' 2026-08-17, ambiguous as "this is correct"). list_review.php's query
 	// finds outstanding work by this flag directly (xkey_ext='REVIEW'), so a fresh

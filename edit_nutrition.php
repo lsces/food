@@ -64,7 +64,7 @@ function foodGToMg( $pG ) {
 	return (string)(int)round( (float)$pG * 1000 );
 }
 
-// Ordered to match the UK nutrition-label layout Lester copies figures from:
+// Ordered to match the UK nutrition-label layout the author copies figures from:
 // Calories, Fat (total/saturated), Carbohydrate, Sugar, Fibre, Protein, Salt.
 // 'kind' drives which input(s) the template renders — 'scalar' is a plain
 // text/xkey field (the original behaviour for CAL/CARB/SUGR/FIBR/PROT/5AD),

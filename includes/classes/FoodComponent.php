@@ -584,7 +584,7 @@ class FoodComponent extends LibertyContent {
 	 * 'mass' flag; CAL (kcal, not a mass) must never be passed through this.
 	 *
 	 * 2026-08-22: briefly changed to always-grams, reverted the same day — this
-	 * summary-bar behaviour was never the complaint (Lester: "not unhappy about
+	 * summary-bar behaviour was never the complaint (the author: "not unhappy about
 	 * the 700mg in the totals bar"). The actual ask was the Nutrition tab's raw
 	 * per-row xref display, see FoodComponent::formatMgThreshold() and
 	 * view_nutrition_group.tpl.

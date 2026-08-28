@@ -30,7 +30,7 @@ if( strlen( $q ) < 2 ) {
 }
 
 // Optional shop filter (added 2026-08-22 for edit_movement.tpl's receipt-scoped
-// search) — Lester's own call to drop the earlier "component base needs tidying
+// search) — the author's own call to drop the earlier "component base needs tidying
 // first" deferral: he'll tag a component's SUP on the spot via edit_component.php
 // whenever a genuinely new item doesn't show up filtered, rather than waiting for
 // a full tidy pass. Opt-in: no shop selected (0/blank) means unfiltered, same as

@@ -1,7 +1,7 @@
 <?php
 /**
  * Day view — one calendar day, all 5 meal-type slots stacked down the page (not
- * tabs, per Lester's own preference). Each slot either shows its existing meal's
+ * tabs, per the author's own preference). Each slot either shows its existing meal's
  * ingredients (a real FoodAssembly, looked up via lookupByDayAndType()) or, if
  * nothing's logged for that slot yet, a "log a new meal" action
  * (FoodAssembly::createForDay()) that redirects straight into edit_assembly.php to

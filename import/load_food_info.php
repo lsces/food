@@ -3,7 +3,7 @@
  * Import FoodComponents from a Samsung Health food_info.csv export.
  *
  * Expects a paired export in FOOD_IMPORT_PATH (storage/food/) — copy the two files from
- * a food_lester_<date> split (see ~/Personal/Health/Samsung Health/split_health.sh) in:
+ * a food_name_<date> split (see ~/Personal/Health/Samsung Health/split_health.sh) in:
  *   com.samsung.health.food_info.<date>.csv
  *   com.samsung.health.food_intake.<date>.csv
  * Picks the most recent date suffix present. Only food_info rows referenced by at least
@@ -47,7 +47,7 @@ $result = [
 
 if( !$pair ) {
 	$result['errors'][] = 'No paired food_info/food_intake CSVs found in '.FOOD_IMPORT_PATH.
-		' — copy a food_lester_<date> export split there first.';
+		' — copy a food_name_<date> export split there first.';
 } else {
 	[ $infoFile, $intakeFile ] = $pair;
 

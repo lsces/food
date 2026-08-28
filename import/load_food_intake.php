@@ -41,7 +41,7 @@ $result = [
 
 if( !$pair ) {
 	$result['errors'][] = 'No paired food_info/food_intake CSVs found in '.FOOD_IMPORT_PATH.
-		' — copy a food_lester_<date> export split there first.';
+		' — copy a food_name_<date> export split there first.';
 } else {
 	[ $infoFile, $intakeFile ] = $pair;
 
