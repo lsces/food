@@ -12,10 +12,11 @@
 namespace Bitweaver\Food;
 
 use Bitweaver\KernelTools;
+use Bitweaver\Liberty\LibertyContent;
 
 require_once '../kernel/includes/setup_inc.php';
 
-global $gBitSystem, $gBitSmarty, $gBitUser, $gBitDb;
+global $gBitSystem, $gBitSmarty, $gBitUser;
 
 $gBitSystem->verifyPackage( 'food' );
 
@@ -55,12 +56,7 @@ if( !empty( $_REQUEST['fAddSupplier'] ) ) {
 	}
 }
 
-$suppliers = $gBitDb->getAll(
-	"SELECT lc.`content_id`, lc.`title` FROM `".BIT_DB_PREFIX."liberty_content` lc
-		JOIN `".BIT_DB_PREFIX."liberty_xref` lx ON ( lx.`content_id` = lc.`content_id` AND lx.`item` = 'B04' )
-	 WHERE lc.`content_type_guid` = 'contactbusiness'
-	 ORDER BY lc.`title`"
-);
+$suppliers = LibertyContent::listContentByXrefItem( 'B04', 'contactbusiness' );
 
 $gBitSmarty->assign( 'gContent',   $gContent );
 $gBitSmarty->assign( 'suppliers',  $suppliers );

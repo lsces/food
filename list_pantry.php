@@ -10,6 +10,7 @@
 namespace Bitweaver\Food;
 
 use Bitweaver\BitBase;
+use Bitweaver\Liberty\LibertyContent;
 
 require_once '../kernel/includes/setup_inc.php';
 
@@ -110,12 +111,7 @@ $gBitSmarty->assign( 'listInfo',   $listHash['listInfo'] );
 $gBitSmarty->assign( 'find',       $find );
 
 // Shop filter dropdown — same shops query as list_components.php/edit_movement.php's own.
-$shops = $gBitDb->getAll(
-	"SELECT lc.`content_id`, lc.`title` FROM `".BIT_DB_PREFIX."liberty_content` lc
-		JOIN `".BIT_DB_PREFIX."liberty_xref` lx ON ( lx.`content_id` = lc.`content_id` AND lx.`item` = 'B04' )
-	 WHERE lc.`content_type_guid` = 'contactbusiness'
-	 ORDER BY lc.`title`"
-);
+$shops = LibertyContent::listContentByXrefItem( 'B04', 'contactbusiness' );
 $gBitSmarty->assign( 'shops',        $shops );
 $gBitSmarty->assign( 'selectedShop', $supId );
 
