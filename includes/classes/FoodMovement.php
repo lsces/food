@@ -20,7 +20,6 @@
 namespace Bitweaver\Food;
 
 use Bitweaver\Liberty\LibertyContent;
-use Bitweaver\Liberty\LibertyXref;
 
 defined( 'FOODMOVEMENT_CONTENT_TYPE_GUID' ) || define( 'FOODMOVEMENT_CONTENT_TYPE_GUID', 'foodmovement' );
 
@@ -218,24 +217,17 @@ class FoodMovement extends LibertyContent {
 		if( !$this->isValid() ) {
 			return false;
 		}
-		$existing = $this->mDb->getRow(
-			"SELECT `xref_id` FROM `".BIT_DB_PREFIX."liberty_xref` WHERE `content_id` = ? AND `item` = 'RECEIPT'",
-			[ $this->mContentId ]
-		);
-		$pHash = [
-			'content_id' => $this->mContentId,
-			'item'       => 'RECEIPT',
-			'xkey'       => $pRefKey,
-			'edit'       => $pNote,
+		$values = [
+			'xkey' => $pRefKey,
+			'edit' => $pNote,
 		];
 		if( $pShopContentId ) {
-			$pHash['xref'] = $pShopContentId;
+			$values['xref'] = $pShopContentId;
 		}
 		if( $pPurchaseDate !== null ) {
-			$pHash['start_date'] = $pPurchaseDate;
+			$values['start_date'] = $pPurchaseDate;
 		}
-		$existing ? $pHash['xref_id'] = $existing['xref_id'] : $pHash['fAddXref'] = 1;
-		return $this->storeXref( $pHash );
+		return $this->upsertXref( $this->mContentId, 'RECEIPT', $values );
 	}
 
 	/**
@@ -270,17 +262,10 @@ class FoodMovement extends LibertyContent {
 		if( !$this->isValid() || !$this->verifyId( $pComponentContentId ) || $pQuantity <= 0 ) {
 			return false;
 		}
-		$baseRow = $this->mDb->getRow(
-			"SELECT `item`, `xkey` FROM `".BIT_DB_PREFIX."liberty_xref`
-			 WHERE `content_id` = ? AND `item` IN ('WT','VOL')",
-			[ $pComponentContentId ]
-		);
+		$baseRow = LibertyContent::lookupXrefByItem( $pComponentContentId, [ 'WT', 'VOL' ], 'foodcomponent' );
 
 		if( $pMode === 'sgl' ) {
-			$hasSgl = (bool)$this->mDb->getOne(
-				"SELECT 1 FROM `".BIT_DB_PREFIX."liberty_xref` WHERE `content_id` = ? AND `item` = 'SGL'",
-				[ $pComponentContentId ]
-			);
+			$hasSgl = LibertyContent::lookupXrefByItem( $pComponentContentId, 'SGL', 'foodcomponent' ) !== null;
 			if( !$hasSgl ) {
 				$this->mErrors['component'] = 'This component is not flagged for count-based (SGL) tracking.';
 				return false;
@@ -340,12 +325,8 @@ class FoodMovement extends LibertyContent {
 		if( $pItem !== 'SGL' ) {
 			return $pXkey;
 		}
-		$baseValue = $this->mDb->getOne(
-			"SELECT `xkey` FROM `".BIT_DB_PREFIX."liberty_xref`
-			 WHERE `content_id` = ? AND `item` IN ('WT','VOL')",
-			[ $pComponentContentId ]
-		);
-		return $pXkey * (float)$baseValue;
+		$baseRow = LibertyContent::lookupXrefByItem( $pComponentContentId, [ 'WT', 'VOL' ], 'foodcomponent' );
+		return $pXkey * (float)( $baseRow['xkey'] ?? 0 );
 	}
 
 	/**
@@ -460,20 +441,13 @@ class FoodMovement extends LibertyContent {
 	 * @return float  The actual change in REM (new value − old value).
 	 */
 	public function adjustComponentRem( int $pComponentContentId, float $pDelta ): float {
-		$existing = $this->mDb->getRow(
-			"SELECT `xref_id`, `xkey` FROM `".BIT_DB_PREFIX."liberty_xref`
-			 WHERE `content_id` = ? AND `item` = 'REM'",
-			[ $pComponentContentId ]
-		);
+		$existing = LibertyContent::lookupXrefByItem( $pComponentContentId, 'REM', 'foodcomponent' );
 		$current = $existing ? (float)$existing['xkey'] : 0.0;
 		$raw = $current + $pDelta;
 		if( $pDelta < 0 ) {
-			$portionSize = $this->mDb->getOne(
-				"SELECT `xkey` FROM `".BIT_DB_PREFIX."liberty_xref`
-				 WHERE `content_id` = ? AND `item` IN ('WT','VOL') AND `xkey` IS NOT NULL AND `xkey` <> ''",
-				[ $pComponentContentId ]
-			);
-			$dustThreshold = $portionSize ? self::DUST_THRESHOLD_RATIO * (float)$portionSize : 0.0;
+			$baseRow = LibertyContent::lookupXrefByItem( $pComponentContentId, [ 'WT', 'VOL' ], 'foodcomponent' );
+			$portionSize = ( $baseRow && $baseRow['xkey'] !== null && $baseRow['xkey'] !== '' ) ? (float)$baseRow['xkey'] : 0.0;
+			$dustThreshold = $portionSize ? self::DUST_THRESHOLD_RATIO * $portionSize : 0.0;
 			$new = $raw < $dustThreshold ? 0.0 : $raw;
 		} else {
 			// Stock can't go negative, but the dust threshold above only ever
@@ -481,18 +455,7 @@ class FoodMovement extends LibertyContent {
 			// exactly what it adds.
 			$new = max( 0.0, $raw );
 		}
-		$xref = new LibertyXref();
-		$pHash = [
-			'content_id' => $pComponentContentId,
-			'item'       => 'REM',
-			'xkey'       => (string)$new,
-		];
-		if( $existing ) {
-			$pHash['xref_id'] = $existing['xref_id'];
-		} else {
-			$pHash['fAddXref'] = 1;
-		}
-		$xref->store( $pHash );
+		LibertyContent::upsertXrefByContentId( $pComponentContentId, 'REM', [ 'xkey' => (string)$new ] );
 		return $new - $current;
 	}
 

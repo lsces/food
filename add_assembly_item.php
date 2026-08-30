@@ -11,6 +11,7 @@
 namespace Bitweaver\Food;
 
 use Bitweaver\KernelTools;
+use Bitweaver\Liberty\LibertyContent;
 use Bitweaver\Liberty\LibertyXref;
 
 require_once '../kernel/includes/setup_inc.php';
@@ -74,14 +75,10 @@ if( !empty( $_REQUEST['fAddComponent'] ) ) {
 			die;
 		}
 
-		// No FIRST/ORDER BY needed — WT/VOL/SGL are registered multiple=-2
-		// (mutually exclusive) on foodcomponent's quantity group, so at most one
-		// of WT/VOL can ever be set on a real component.
-		$baseRow = $gBitDb->getRow(
-			"SELECT `item`, `xkey` FROM `".BIT_DB_PREFIX."liberty_xref`
-			 WHERE `content_id` = ? AND `item` IN ('WT','VOL')",
-			[ $compId ]
-		);
+		// WT/VOL are registered multiple=-2 (mutually exclusive) on
+		// foodcomponent's quantity group, so at most one can ever be set on a
+		// real component - lookupXrefByItem()'s FIRST 1 is safe either way.
+		$baseRow = LibertyContent::lookupXrefByItem( $compId, [ 'WT', 'VOL' ], 'foodcomponent' );
 
 		$mode = ( $_REQUEST['qty_mode'] ?? 'base' ) === 'sgl' ? 'sgl' : 'base';
 
@@ -107,10 +104,7 @@ if( !empty( $_REQUEST['fAddComponent'] ) ) {
 			// Same conversion math as FoodMovement::addComponentLine()'s own sgl
 			// branch: a count times the component's own declared per-unit weight.
 			if( $mode === 'sgl' ) {
-				$hasSgl = (bool)$gBitDb->getOne(
-					"SELECT 1 FROM `".BIT_DB_PREFIX."liberty_xref` WHERE `content_id` = ? AND `item` = 'SGL'",
-					[ $compId ]
-				);
+				$hasSgl = LibertyContent::lookupXrefByItem( $compId, 'SGL', 'foodcomponent' ) !== null;
 				if( !$hasSgl ) {
 					$errors[] = KernelTools::tra( 'This component is not flagged for count-based (SGL) tracking.' );
 				} elseif( !$baseRow || !is_numeric( $baseRow['xkey'] ?? null ) ) {

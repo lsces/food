@@ -15,6 +15,7 @@ namespace Bitweaver\Food;
 
 use Bitweaver\KernelTools;
 use Bitweaver\HttpStatusCodes;
+use Bitweaver\Liberty\LibertyContent;
 
 require_once '../kernel/includes/setup_inc.php';
 
@@ -105,11 +106,7 @@ if( !empty( $_REQUEST['remove_xref_id'] ) ) {
 			die;
 		}
 
-		$baseRow = $gBitDb->getRow(
-			"SELECT `item`, `xkey` FROM `".BIT_DB_PREFIX."liberty_xref`
-			 WHERE `content_id` = ? AND `item` IN ('WT','VOL')",
-			[ $compId ]
-		);
+		$baseRow = LibertyContent::lookupXrefByItem( $compId, [ 'WT', 'VOL' ], 'foodcomponent' );
 
 		$mode = ( $_REQUEST['qty_mode'] ?? 'base' ) === 'sgl' ? 'sgl' : 'base';
 		if( $qty === '' ) {
@@ -120,10 +117,7 @@ if( !empty( $_REQUEST['remove_xref_id'] ) ) {
 			$errors['add'] = KernelTools::tra( 'Quantity must be a positive number — this component has no declared weight/volume to default from.' );
 		} else {
 			if( $mode === 'sgl' ) {
-				$hasSgl = (bool)$gBitDb->getOne(
-					"SELECT 1 FROM `".BIT_DB_PREFIX."liberty_xref` WHERE `content_id` = ? AND `item` = 'SGL'",
-					[ $compId ]
-				);
+				$hasSgl = LibertyContent::lookupXrefByItem( $compId, 'SGL', 'foodcomponent' ) !== null;
 				if( !$hasSgl ) {
 					$errors['add'] = KernelTools::tra( 'This component is not flagged for count-based (SGL) tracking.' );
 				} elseif( !$baseRow || !is_numeric( $baseRow['xkey'] ?? null ) ) {
