@@ -715,11 +715,10 @@ class FoodAssembly extends LibertyContent {
 	 * delete: once the xref rows are gone there's nothing left to compute the
 	 * reversal from), then LibertyContent::expunge() hard-deletes the ingredient
 	 * rows and the content itself — it already does its own `DELETE FROM
-	 * liberty_xref WHERE content_id = ?` internally, no need to repeat it here
-	 * (found doing exactly that redundantly, removed 2026-08-30). The counterpart
-	 * to add_assembly_item.php/copy_assembly.php's REM decrement — a meal being
-	 * deleted gives its ingredients back to the pantry the same way a receipt
-	 * reversal or movement-line delete does.
+	 * liberty_xref WHERE content_id = ?` internally, no need to repeat it here.
+	 * The counterpart to add_assembly_item.php/copy_assembly.php's REM
+	 * decrement — a meal being deleted gives its ingredients back to the
+	 * pantry the same way a receipt reversal or movement-line delete does.
 	 */
 	public function expunge(): bool {
 		if( $this->isValid() ) {
