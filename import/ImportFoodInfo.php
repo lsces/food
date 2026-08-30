@@ -31,7 +31,7 @@
  */
 
 use Bitweaver\Food\FoodComponent;
-use Bitweaver\Liberty\LibertyXref;
+use Bitweaver\Liberty\LibertyContent;
 
 /**
  * Parse one Samsung Health CSV: skip the 1-line preamble, read the real header row,
@@ -131,10 +131,10 @@ function foodNormalizePer100g( $pRawValue, $pServingAmount ): ?float {
 }
 
 /**
- * Insert-or-update one liberty_xref row via LibertyXref::store() (the real API behind
- * the historical 'storeXref' memory note — always a named variable, it takes
- * &$pParamHash by reference). $pXkey/$pXkeyExt/$pData null means "don't touch that
- * column"; params follow table column order (xkey, xkey_ext, data). $pXkey is
+ * Insert-or-update one liberty_xref row via LibertyContent::upsertXrefByContentId()
+ * (existing-or-add, no loaded content object needed). $pXkey/$pXkeyExt/$pData
+ * null means "don't touch that column"; params follow table column order
+ * (xkey, xkey_ext, data). $pXkey is
  * `xkey C(32)` — short values only (mg-integers etc); anything that can run longer
  * (UUIDs, provider_food_id) must go in $pXkeyExt (`xkey_ext C(250)`) instead —
  * confirmed the hard way, xkey truncation is a Firebird fatal error (SQLSTATE 22001),
@@ -149,17 +149,7 @@ function foodNormalizePer100g( $pRawValue, $pServingAmount ): ?float {
  * distinct from xkey/xkey_ext — used by SUP, see foodMatchSupplier().
  */
 function foodStoreXref( int $pContentId, string $pItem, $pXkey = null, $pXkeyExt = null, $pData = null, ?int $pEntryDate = null, ?int $pLastUpdateDate = null, ?int $pXref = null ): void {
-	global $gBitDb;
-
-	$existingId = $gBitDb->getOne(
-		"SELECT `xref_id` FROM `".BIT_DB_PREFIX."liberty_xref` WHERE `content_id` = ? AND `item` = ? AND `xorder` = 0",
-		[ $pContentId, $pItem ]
-	);
-
-	$pHash = [
-		'content_id' => $pContentId,
-		'item'       => $pItem,
-	];
+	$pHash = [];
 	if( $pXkey !== null ) {
 		$pHash['xkey'] = (string)$pXkey;
 	}
@@ -178,12 +168,8 @@ function foodStoreXref( int $pContentId, string $pItem, $pXkey = null, $pXkeyExt
 	if( $pLastUpdateDate !== null ) {
 		$pHash['last_update_date'] = $pLastUpdateDate;
 	}
-	if( $existingId ) {
-		$pHash['xref_id'] = (int)$existingId;
-	}
 
-	$xref = new LibertyXref();
-	$xref->store( $pHash );
+	LibertyContent::upsertXrefByContentId( $pContentId, $pItem, $pHash );
 }
 
 /**
@@ -196,14 +182,8 @@ function foodStoreXref( int $pContentId, string $pItem, $pXkey = null, $pXkeyExt
 function foodSupplierLookup(): array {
 	static $lookup = null;
 	if( $lookup === null ) {
-		global $gBitDb;
-		$rows = $gBitDb->getAll(
-			"SELECT lc.`content_id`, lc.`title` FROM `".BIT_DB_PREFIX."liberty_content` lc
-				JOIN `".BIT_DB_PREFIX."liberty_xref` lx ON ( lx.`content_id` = lc.`content_id` AND lx.`item` = 'B04' )
-			 WHERE lc.`content_type_guid` = 'contactbusiness'"
-		);
 		$lookup = [];
-		foreach( $rows as $row ) {
+		foreach( LibertyContent::listContentByXrefItem( 'B04', 'contactbusiness' ) as $row ) {
 			$lookup[$row['title']] = (int)$row['content_id'];
 		}
 	}
