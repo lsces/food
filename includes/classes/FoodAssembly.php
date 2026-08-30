@@ -712,11 +712,14 @@ class FoodAssembly extends LibertyContent {
 	/**
 	 * Delete this meal — restocks every ingredient's REM balance first (same
 	 * reasoning as FoodMovement::expunge() reversing receipt lines before its own
-	 * raw DELETE: once the xref rows are gone there's nothing left to compute the
-	 * reversal from), then hard-deletes the ingredient rows and the content itself.
-	 * The counterpart to add_assembly_item.php/copy_assembly.php's REM decrement —
-	 * a meal being deleted gives its ingredients back to the pantry the same way a
-	 * receipt reversal or movement-line delete does.
+	 * delete: once the xref rows are gone there's nothing left to compute the
+	 * reversal from), then LibertyContent::expunge() hard-deletes the ingredient
+	 * rows and the content itself — it already does its own `DELETE FROM
+	 * liberty_xref WHERE content_id = ?` internally, no need to repeat it here
+	 * (found doing exactly that redundantly, removed 2026-08-30). The counterpart
+	 * to add_assembly_item.php/copy_assembly.php's REM decrement — a meal being
+	 * deleted gives its ingredients back to the pantry the same way a receipt
+	 * reversal or movement-line delete does.
 	 */
 	public function expunge(): bool {
 		if( $this->isValid() ) {
@@ -733,7 +736,6 @@ class FoodAssembly extends LibertyContent {
 					: (float)$item['quantity'];
 				$movement->adjustComponentRem( (int)$item['component_content_id'], $restock );
 			}
-			$this->mDb->getOne( "DELETE FROM `".BIT_DB_PREFIX."liberty_xref` WHERE `content_id` = ?", [ $this->mContentId ] );
 			if( LibertyContent::expunge() ) {
 				$this->CompleteTrans();
 				$this->mContentId = null;
