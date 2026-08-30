@@ -341,11 +341,10 @@ class FoodComponent extends LibertyContent {
 
 		$this->getServicesSql( 'content_list_sql_function', $selectSql, $joinSql, $whereSql, $bindVars );
 
-		$X = BIT_DB_PREFIX;
-		$selectSql .= ", (SELECT FIRST 1 shop.`title` FROM `{$X}liberty_xref` sx
-			INNER JOIN `{$X}liberty_content` shop ON ( shop.`content_id` = sx.`xref` )
+		$selectSql .= ", (SELECT FIRST 1 shop.`title` FROM `".BIT_DB_PREFIX."liberty_xref` sx
+			INNER JOIN `".BIT_DB_PREFIX."liberty_content` shop ON ( shop.`content_id` = sx.`xref` )
 			WHERE sx.`content_id` = lc.`content_id` AND sx.`item` = 'SUP' ) AS `supplier_title`";
-		$selectSql .= ", (SELECT COUNT(*) FROM `{$X}liberty_xref` rx WHERE rx.`content_id` = lc.`content_id` AND rx.`item` = 'REM' AND rx.`xkey_ext` = 'REVIEW') AS `needs_review`";
+		$selectSql .= ", (SELECT COUNT(*) FROM `".BIT_DB_PREFIX."liberty_xref` rx WHERE rx.`content_id` = lc.`content_id` AND rx.`item` = 'REM' AND rx.`xkey_ext` = 'REVIEW') AS `needs_review`";
 
 		$orderby = !empty( $pListHash['sort_mode'] )
 			? " ORDER BY ".$this->mDb->convertSortmode( $pListHash['sort_mode'] )

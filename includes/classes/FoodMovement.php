@@ -95,20 +95,19 @@ class FoodMovement extends LibertyContent {
 
 			$this->getServicesSql( 'content_load_sql_function', $selectSql, $joinSql, $whereSql, $bindVars, $this );
 
-			$X = BIT_DB_PREFIX;
 			$sql = "SELECT lc.* $selectSql
 						, uue.`login` AS `modifier_user`, uue.`real_name` AS `modifier_real_name`
 						, uuc.`login` AS `creator_user`, uuc.`real_name` AS `creator_real_name`
-						, (SELECT FIRST 1 x.`xref` FROM `{$X}liberty_xref` x
+						, (SELECT FIRST 1 x.`xref` FROM `".BIT_DB_PREFIX."liberty_xref` x
 						   WHERE x.`content_id` = lc.`content_id` AND x.`item` = 'RECEIPT') AS ref_contact_id
-						, (SELECT FIRST 1 lc2.`title` FROM `{$X}liberty_xref` x
-						   JOIN `{$X}liberty_content` lc2 ON lc2.`content_id` = x.`xref`
+						, (SELECT FIRST 1 lc2.`title` FROM `".BIT_DB_PREFIX."liberty_xref` x
+						   JOIN `".BIT_DB_PREFIX."liberty_content` lc2 ON lc2.`content_id` = x.`xref`
 						   WHERE x.`content_id` = lc.`content_id` AND x.`item` = 'RECEIPT') AS ref_contact_name
-						, (SELECT FIRST 1 x.`xkey` FROM `{$X}liberty_xref` x
+						, (SELECT FIRST 1 x.`xkey` FROM `".BIT_DB_PREFIX."liberty_xref` x
 						   WHERE x.`content_id` = lc.`content_id` AND x.`item` = 'RECEIPT') AS ref_key
-						, (SELECT FIRST 1 x.`start_date` FROM `{$X}liberty_xref` x
+						, (SELECT FIRST 1 x.`start_date` FROM `".BIT_DB_PREFIX."liberty_xref` x
 						   WHERE x.`content_id` = lc.`content_id` AND x.`item` = 'RECEIPT') AS ref_start_date
-						, (SELECT FIRST 1 x.`data` FROM `{$X}liberty_xref` x
+						, (SELECT FIRST 1 x.`data` FROM `".BIT_DB_PREFIX."liberty_xref` x
 						   WHERE x.`content_id` = lc.`content_id` AND x.`item` = 'RECEIPT') AS ref_note
 					FROM `".BIT_DB_PREFIX."liberty_content` lc
 						LEFT JOIN `".BIT_DB_PREFIX."users_users` uue ON (uue.`user_id` = lc.`modifier_user_id`)
@@ -546,19 +545,18 @@ class FoodMovement extends LibertyContent {
 			$bindVars
 		);
 
-		$X = BIT_DB_PREFIX;
 		$query = "SELECT lc.`content_id`, lc.`title`, lc.`created`, lc.`last_modified`, lc.`event_time`,
 						lc.`user_id`, uu.`login`, uu.`real_name`,
-						(SELECT FIRST 1 x.`xref` FROM `{$X}liberty_xref` x
+						(SELECT FIRST 1 x.`xref` FROM `".BIT_DB_PREFIX."liberty_xref` x
 						 WHERE x.`content_id` = lc.`content_id` AND x.`item` = 'RECEIPT') AS ref_contact_id,
-						(SELECT FIRST 1 lc2.`title` FROM `{$X}liberty_xref` x
-						 JOIN `{$X}liberty_content` lc2 ON lc2.`content_id` = x.`xref`
+						(SELECT FIRST 1 lc2.`title` FROM `".BIT_DB_PREFIX."liberty_xref` x
+						 JOIN `".BIT_DB_PREFIX."liberty_content` lc2 ON lc2.`content_id` = x.`xref`
 						 WHERE x.`content_id` = lc.`content_id` AND x.`item` = 'RECEIPT') AS ref_contact_name,
-						(SELECT FIRST 1 x.`start_date` FROM `{$X}liberty_xref` x
+						(SELECT FIRST 1 x.`start_date` FROM `".BIT_DB_PREFIX."liberty_xref` x
 						 WHERE x.`content_id` = lc.`content_id` AND x.`item` = 'RECEIPT') AS ref_start_date
 						$selectSql
-				FROM `{$X}liberty_content` lc
-					INNER JOIN `{$X}users_users` uu ON uu.`user_id` = lc.`user_id`
+				FROM `".BIT_DB_PREFIX."liberty_content` lc
+					INNER JOIN `".BIT_DB_PREFIX."users_users` uu ON uu.`user_id` = lc.`user_id`
 					$joinSql
 				$whereSql $orderby";
 

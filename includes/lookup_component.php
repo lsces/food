@@ -39,7 +39,7 @@ $shopId = (int)( $_GET['shop'] ?? 0 );
 $shopSql = '';
 $bindVars = [ 'foodcomponent', '%'.strtolower( $q ).'%' ];
 if( $shopId > 0 ) {
-	$shopSql = " AND EXISTS ( SELECT 1 FROM liberty_xref sf WHERE sf.content_id = lc.content_id AND sf.item = 'SUP' AND sf.xref = ? )";
+	$shopSql = " AND EXISTS ( SELECT 1 FROM `".BIT_DB_PREFIX."liberty_xref` sf WHERE sf.content_id = lc.content_id AND sf.item = 'SUP' AND sf.xref = ? )";
 	$bindVars[] = $shopId;
 }
 
@@ -72,20 +72,20 @@ if( $shopId > 0 ) {
 // fields noted above.
 $rows = $gBitDb->getArray(
 	"SELECT FIRST 30 lc.content_id, lc.title,
-			( SELECT FIRST 1 sup.title FROM liberty_xref x
-			  JOIN liberty_content sup ON ( sup.content_id = x.xref )
+			( SELECT FIRST 1 sup.title FROM `".BIT_DB_PREFIX."liberty_xref` x
+			  JOIN `".BIT_DB_PREFIX."liberty_content` sup ON ( sup.content_id = x.xref )
 			  WHERE x.content_id = lc.content_id AND x.item = 'SUP' ) AS supplier,
-			( SELECT FIRST 1 u.xkey FROM liberty_xref u
+			( SELECT FIRST 1 u.xkey FROM `".BIT_DB_PREFIX."liberty_xref` u
 			  WHERE u.content_id = lc.content_id AND u.item IN ('WT','VOL')
 			    AND u.xkey IS NOT NULL AND u.xkey <> ''
 			  ORDER BY CASE u.item WHEN 'VOL' THEN 0 ELSE 1 END ) AS default_qty,
-			( SELECT FIRST 1 t.item FROM liberty_xref t
+			( SELECT FIRST 1 t.item FROM `".BIT_DB_PREFIX."liberty_xref` t
 			  WHERE t.content_id = lc.content_id AND t.item IN ('WT','VOL') ) AS quantity_item,
-			( SELECT FIRST 1 1 FROM liberty_xref s
+			( SELECT FIRST 1 1 FROM `".BIT_DB_PREFIX."liberty_xref` s
 			  WHERE s.content_id = lc.content_id AND s.item = 'SGL' ) AS has_sgl,
-			( SELECT FIRST 1 s.xkey_ext FROM liberty_xref s
+			( SELECT FIRST 1 s.xkey_ext FROM `".BIT_DB_PREFIX."liberty_xref` s
 			  WHERE s.content_id = lc.content_id AND s.item = 'SGL' ) AS sgl_note
-	 FROM liberty_content lc
+	 FROM `".BIT_DB_PREFIX."liberty_content` lc
 	 WHERE lc.content_type_guid=? AND LOWER(lc.title) LIKE ?$shopSql
 	 ORDER BY lc.title",
 	$bindVars

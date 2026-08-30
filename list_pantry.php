@@ -58,20 +58,19 @@ $offset     = $listHash['offset'];
 // note — e.g. "Ready Meal" — same spare-column reuse as REM's xkey_ext review tag
 // (see admin/schema_inc.php), just a different item/purpose. Shown as its own column;
 // blank for anything not SGL-flagged or not yet noted.
-$X = BIT_DB_PREFIX;
 $rows = $gBitDb->getAll(
 	"SELECT lc.`content_id`, lc.`title`, CAST(rem.`xkey` AS DOUBLE PRECISION) AS quantity,
 			base.`item` AS base_item, base.`xkey` AS base_value_raw,
-			(SELECT FIRST 1 1 FROM `{$X}liberty_xref` s
+			(SELECT FIRST 1 1 FROM `".BIT_DB_PREFIX."liberty_xref` s
 			 WHERE s.`content_id` = lc.`content_id` AND s.`item` = 'SGL') AS has_sgl,
-			(SELECT FIRST 1 s.`xkey_ext` FROM `{$X}liberty_xref` s
+			(SELECT FIRST 1 s.`xkey_ext` FROM `".BIT_DB_PREFIX."liberty_xref` s
 			 WHERE s.`content_id` = lc.`content_id` AND s.`item` = 'SGL') AS sgl_note,
-			(SELECT FIRST 1 shop.`title` FROM `{$X}liberty_xref` sx
-			 INNER JOIN `{$X}liberty_content` shop ON ( shop.`content_id` = sx.`xref` )
+			(SELECT FIRST 1 shop.`title` FROM `".BIT_DB_PREFIX."liberty_xref` sx
+			 INNER JOIN `".BIT_DB_PREFIX."liberty_content` shop ON ( shop.`content_id` = sx.`xref` )
 			 WHERE sx.`content_id` = lc.`content_id` AND sx.`item` = 'SUP') AS supplier_title
-		FROM `{$X}liberty_content` lc
-		JOIN `{$X}liberty_xref` rem ON ( rem.`content_id` = lc.`content_id` AND rem.`item` = 'REM' )
-		LEFT JOIN `{$X}liberty_xref` base ON ( base.`content_id` = lc.`content_id` AND base.`item` IN ('WT','VOL') )
+		FROM `".BIT_DB_PREFIX."liberty_content` lc
+		JOIN `".BIT_DB_PREFIX."liberty_xref` rem ON ( rem.`content_id` = lc.`content_id` AND rem.`item` = 'REM' )
+		LEFT JOIN `".BIT_DB_PREFIX."liberty_xref` base ON ( base.`content_id` = lc.`content_id` AND base.`item` IN ('WT','VOL') )
 	 WHERE lc.`content_type_guid` = 'foodcomponent'
 	   AND rem.`xkey` SIMILAR TO '[0-9]+([.][0-9]+)?' AND CAST(rem.`xkey` AS DOUBLE PRECISION) > 0
 	   $findSql
