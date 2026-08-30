@@ -366,10 +366,7 @@ class FoodMovement extends LibertyContent {
 	 * @return bool  FALSE if no such line exists on this movement.
 	 */
 	public function removeComponentLine( int $pXrefId ): bool {
-		$row = $this->mDb->getRow(
-			"SELECT `item`, `xref`, `xkey` FROM `".BIT_DB_PREFIX."liberty_xref` WHERE `xref_id` = ? AND `content_id` = ?",
-			[ $pXrefId, $this->mContentId ]
-		);
+		$row = $this->getOwnedXrefRow( $pXrefId );
 		if( !$row ) {
 			return false;
 		}
@@ -402,10 +399,7 @@ class FoodMovement extends LibertyContent {
 		if( $pNewQuantity <= 0 ) {
 			return false;
 		}
-		$row = $this->mDb->getRow(
-			"SELECT `item`, `xref`, `xkey` FROM `".BIT_DB_PREFIX."liberty_xref` WHERE `xref_id` = ? AND `content_id` = ?",
-			[ $pXrefId, $this->mContentId ]
-		);
+		$row = $this->getOwnedXrefRow( $pXrefId );
 		if( !$row ) {
 			return false;
 		}

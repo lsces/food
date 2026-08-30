@@ -366,10 +366,7 @@ class FoodAssembly extends LibertyContent {
 	 * @return bool  FALSE if no such line exists on this assembly.
 	 */
 	public function removeItem( int $pXrefId ): bool {
-		$row = $this->mDb->getRow(
-			"SELECT `xref`, `xkey`, `xkey_ext` FROM `".BIT_DB_PREFIX."liberty_xref` WHERE `xref_id` = ? AND `content_id` = ?",
-			[ $pXrefId, $this->mContentId ]
-		);
+		$row = $this->getOwnedXrefRow( $pXrefId );
 		if( !$row ) {
 			return false;
 		}
@@ -408,10 +405,7 @@ class FoodAssembly extends LibertyContent {
 		if( $pNewQuantity <= 0 ) {
 			return false;
 		}
-		$row = $this->mDb->getRow(
-			"SELECT `item`, `xref`, `xkey`, `xkey_ext` FROM `".BIT_DB_PREFIX."liberty_xref` WHERE `xref_id` = ? AND `content_id` = ?",
-			[ $pXrefId, $this->mContentId ]
-		);
+		$row = $this->getOwnedXrefRow( $pXrefId );
 		if( !$row ) {
 			return false;
 		}
