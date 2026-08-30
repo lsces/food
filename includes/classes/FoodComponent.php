@@ -377,19 +377,6 @@ class FoodComponent extends LibertyContent {
 		return $ret;
 	}
 
-	public function expunge(): bool {
-		if( $this->isValid() ) {
-			$this->StartTrans();
-			if( LibertyContent::expunge() ) {
-				$this->CompleteTrans();
-				$this->mContentId = null;
-			} else {
-				$this->mDb->RollbackTrans();
-			}
-		}
-		return true;
-	}
-
 	/**
 	 * Merge this component into $pTargetContentId — for retiring an accidental
 	 * duplicate (e.g. two "Pulled BBQ Chicken" entries) once the good copy has
