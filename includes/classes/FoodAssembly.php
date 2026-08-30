@@ -468,10 +468,7 @@ class FoodAssembly extends LibertyContent {
 	 */
 	public function clearItems( string $pMealTypeItem ): void {
 		if( $this->isValid() ) {
-			$this->mDb->getOne(
-				"DELETE FROM `".BIT_DB_PREFIX."liberty_xref` WHERE `content_id` = ? AND `item` = ?",
-				[ $this->mContentId, $pMealTypeItem ]
-			);
+			LibertyContent::deleteXrefByItem( $this->mContentId, $pMealTypeItem );
 		}
 	}
 
