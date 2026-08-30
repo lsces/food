@@ -131,7 +131,7 @@ function foodNormalizePer100g( $pRawValue, $pServingAmount ): ?float {
 }
 
 /**
- * Insert-or-update one liberty_xref row via LibertyContent::upsertXrefByContentId()
+ * Insert-or-update one Xref row via LibertyContent::upsertXrefByContentId()
  * (existing-or-add, no loaded content object needed). $pXkey/$pXkeyExt/$pData
  * null means "don't touch that column"; params follow table column order
  * (xkey, xkey_ext, data). $pXkey is

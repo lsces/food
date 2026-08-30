@@ -380,7 +380,7 @@ class FoodComponent extends LibertyContent {
 	/**
 	 * Merge this component into $pTargetContentId — for retiring an accidental
 	 * duplicate (e.g. two "Pulled BBQ Chicken" entries) once the good copy has
-	 * been identified by hand. Re-points every `liberty_xref` row that
+	 * been identified by hand. Re-points every Xref row that
 	 * references this component (`xref` = $this->mContentId — a FoodAssembly
 	 * ingredient line, a FoodMovement quantity line, or anything else that
 	 * happens to link here) onto the target instead, then permanently deletes

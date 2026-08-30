@@ -5,7 +5,7 @@
  * Groups food_intake rows by (start_time, meal_type) — all items sharing an exact
  * start_time+meal_type were logged together as one meal (confirmed against real data,
  * see project_food_package_scoping memory) — and writes one FoodAssembly per group,
- * with each item as a liberty_xref row under the meal-type's own item code
+ * with each item as an Xref row under the meal-type's own item code
  * (BREAKFAST/LUNCH/DINNER/MSNK/ESNK — no separate classification xref, see
  * FoodAssembly.php's own docblock).
  *
