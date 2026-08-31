@@ -145,6 +145,12 @@ class FoodDay {
 			'title'             => $pIsoDate,
 			'event_time'        => $pLocalDayStart,
 			'timestamp'         => $pLocalDayStart,
+			// The real UTC instant of this local day's midnight - already computed above for
+			// the SQL query. Calendar::buildCalendar()'s day-view row matching now buckets on
+			// this (timestamp_utc), not the naive 'timestamp' above, so this tile needs it too
+			// or it would silently fail to match any row at all. Found 2026-08-31, see
+			// kernel/DATETIME.md.
+			'timestamp_utc'     => $utcDayStart,
 			'created'           => $pLocalDayStart,
 			'last_modified'     => $pLocalDayStart,
 			'no_cache'          => true,
