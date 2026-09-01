@@ -26,7 +26,7 @@ use Bitweaver\Liberty\LibertyContent;
 
 require_once '../kernel/includes/setup_inc.php';
 
-global $gBitSystem, $gBitSmarty, $gBitDb;
+global $gBitSystem, $gBitSmarty, $gBitDb, $gBitThemes;
 
 $gBitSystem->verifyPackage( 'food' );
 
@@ -79,27 +79,7 @@ if( !empty( $_REQUEST['save'] ) ) {
 		// reasoning/pattern as add_assembly_item.php. Still verified here rather
 		// than trusted blindly; a tampered or stale id falls through to the
 		// exact-title lookup instead.
-		$compId = (int)( $_REQUEST['component_id'] ?? 0 );
-		if( $compId ) {
-			$valid = (bool)$gBitDb->getOne(
-				"SELECT 1 FROM `".BIT_DB_PREFIX."liberty_content` WHERE `content_id` = ? AND `content_type_guid` = 'foodcomponent'",
-				[ $compId ]
-			);
-			if( !$valid ) {
-				$compId = 0;
-			}
-		}
-		if( !$compId ) {
-			// Fallback for a freshly-typed title (no suggestion picked) — only
-			// ambiguous itself if two components happen to share the exact same
-			// title with nothing selected, an edge case the dropdown above is
-			// there specifically to avoid.
-			$compId = (int)$gBitDb->getOne(
-				"SELECT lc.`content_id` FROM `".BIT_DB_PREFIX."liberty_content` lc
-				 WHERE lc.`content_type_guid` = 'foodcomponent' AND lc.`title` = ?",
-				[ $title ]
-			);
-		}
+		$compId = LibertyContent::resolveContentIdByTitle( (int)( $_REQUEST['component_id'] ?? 0 ), $title, 'foodcomponent' );
 
 		if( !$compId ) {
 			// No path back to the movement after creating the component here — same
@@ -159,5 +139,9 @@ $gBitSmarty->assign( 'lines',           $gContent->getLines() );
 $gBitSmarty->assign( 'purchaseDateVal', $purchaseDateVal );
 $gBitSmarty->assign( 'errors',          $gContent->mErrors );
 $gBitSmarty->assign( 'addErrors',       $addErrors );
+
+if( $gContent->isValid() ) {
+	$gBitThemes->loadJavascript( KERNEL_PKG_PATH.'scripts/BitComponentTypeahead.js', true );
+}
 
 $gBitSystem->display( 'bitpackage:food/edit_movement.tpl', KernelTools::tra( 'Edit Receipt' ), [ 'display_mode' => 'edit' ] );

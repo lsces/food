@@ -19,7 +19,7 @@ use Bitweaver\Liberty\LibertyContent;
 
 require_once '../kernel/includes/setup_inc.php';
 
-global $gBitSystem, $gBitSmarty;
+global $gBitSystem, $gBitSmarty, $gBitThemes;
 
 // Time field below reads/writes local (display-timezone) wall-clock time via
 // BitDate, converting to/from true UTC for storage — bitweaver's own
@@ -78,28 +78,12 @@ if( !empty( $_REQUEST['remove_xref_id'] ) ) {
 	// fallback, not replaced.
 	global $gBitDb;
 	$title  = trim( $_REQUEST['component_title'] ?? '' );
-	$compId = (int)( $_REQUEST['component_id'] ?? 0 );
 	$qty    = trim( $_REQUEST['xkey'] ?? '' );
 
 	if( $title === '' ) {
 		$errors['add'] = KernelTools::tra( 'Food item title is required.' );
 	} else {
-		if( $compId ) {
-			$valid = (bool)$gBitDb->getOne(
-				"SELECT 1 FROM `".BIT_DB_PREFIX."liberty_content` WHERE `content_id` = ? AND `content_type_guid` = 'foodcomponent'",
-				[ $compId ]
-			);
-			if( !$valid ) {
-				$compId = 0;
-			}
-		}
-		if( !$compId ) {
-			$compId = (int)$gBitDb->getOne(
-				"SELECT lc.`content_id` FROM `".BIT_DB_PREFIX."liberty_content` lc
-				 WHERE lc.`content_type_guid` = 'foodcomponent' AND lc.`title` = ?",
-				[ $title ]
-			);
-		}
+		$compId = LibertyContent::resolveContentIdByTitle( (int)( $_REQUEST['component_id'] ?? 0 ), $title, 'foodcomponent' );
 
 		if( !$compId ) {
 			header( 'Location: '.FOOD_PKG_URL.'edit_component.php?title='.urlencode( $title ) );
@@ -244,5 +228,7 @@ $gBitSmarty->assign( 'dateFixed',     $dateFixed );
 $gBitSmarty->assign( 'timeDisplay',   $timeDisplay );
 $gBitSmarty->assign( 'errors',        $errors );
 $gBitSmarty->assign( 'secondTakeDone', !empty( $_REQUEST['second_take_done'] ) );
+
+$gBitThemes->loadJavascript( KERNEL_PKG_PATH.'scripts/BitComponentTypeahead.js', true );
 
 $gBitSystem->display( 'bitpackage:food/edit_assembly.tpl', KernelTools::tra( 'Edit' ).' '.FoodAssembly::mealTypeLabel( $mealType ?? '' ), [ 'display_mode' => 'edit' ] );

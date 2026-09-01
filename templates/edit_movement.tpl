@@ -122,14 +122,6 @@
 {if $gContent->isValid()}
 <script>
 (function($) {
-	var timer;
-	var seq = 0; // request-generation counter — same overlapping-response race
-	             // add_assembly_item.tpl was fixed for in food commit 1ecf60e,
-	             // never ported here until now.
-	var $input   = $('#component_title');
-	var $dd      = $('#comp_dropdown');
-	var $id      = $('#component_id');
-	var $qty     = $('#quantity');
 	var $qtyMode = $('#qty_mode');
 
 	function setQtyModeOptions(quantityItem, hasSgl, sglNote) {
@@ -150,62 +142,21 @@
 		$qtyMode.append($('<option>').val('base').text(unitLabel));
 	}
 
-	$input.trigger('focus');
-
-	$input.on('input', function() {
-		// Manual retyping invalidates whatever component was previously selected —
-		// same reasoning as add_assembly_item.tpl's component_id invalidation —
-		// so a stale id/unit label can't silently survive a hand-edit and point at
-		// the wrong (same-titled, different-supplier) component.
-		$id.val('');
-		setQtyModeOptions(null, false, null);
-		var q = $(this).val();
-		clearTimeout(timer);
-		$dd.hide().empty();
-		if (q.length < 2) return;
-		var reqId = ++seq;
-		timer = setTimeout(function() {
-			// Scoped to whichever shop is currently selected on the receipt, if
-			// any — read live at query time so switching the Shop dropdown mid-
-			// receipt re-scopes the very next search without a page reload.
-			var shopId = $('#shop_content_id').val();
-			$.getJSON('{$smarty.const.FOOD_PKG_URL}includes/lookup_component.php', {ldelim}q: q, shop: shopId{rdelim}, function(data) {
-				if (reqId !== seq) return; // a newer request has since superseded this one
-				$dd.empty();
-				if (!data.length) return;
-				$.each(data, function(i, row) {
-					var label = row.supplier ? row.title + ' [' + row.supplier + ']' : row.title;
-					$dd.append($('<li>').append(
-						$('<a>').attr('href','#')
-							.data('id', row.content_id).data('label', label)
-							.data('quantity-item', row.quantity_item).data('has-sgl', row.has_sgl)
-							.data('sgl-note', row.sgl_note)
-							.text(label)
-					));
-				});
-				$dd.show();
-			});
-		}, 250);
-	});
-
-	$(document).on('mousedown', '#comp_dropdown a', function(e) {
-		e.preventDefault();
-		$input.val($(this).data('label'));
-		$id.val($(this).data('id'));
-		setQtyModeOptions($(this).data('quantity-item'), $(this).data('has-sgl'), $(this).data('sgl-note'));
-		$dd.hide().empty();
-		$qty.trigger('focus');
-	});
-
-	$input.on('blur', function() { setTimeout(function() { $dd.hide(); }, 150); });
-
-	$input.on('keydown', function(e) {
-		if (!$dd.is(':visible')) return;
-		var $links = $dd.find('a'), idx = $links.index($dd.find('li.active a'));
-		if (e.key === 'ArrowDown') { e.preventDefault(); $links.parent().removeClass('active'); $links.eq(idx + 1 < $links.length ? idx + 1 : 0).parent().addClass('active'); }
-		else if (e.key === 'ArrowUp') { e.preventDefault(); $links.parent().removeClass('active'); $links.eq(idx > 0 ? idx - 1 : $links.length - 1).parent().addClass('active'); }
-		else if (e.key === 'Enter') { var $a = $dd.find('li.active a'); if ($a.length) { e.preventDefault(); $a.trigger('mousedown'); } }
-		else if (e.key === 'Escape') { $dd.hide(); }
+	BitComponentTypeahead({
+		input:     '#component_title',
+		dropdown:  '#comp_dropdown',
+		idField:   '#component_id',
+		lookupUrl: '{$smarty.const.FOOD_PKG_URL}includes/lookup_component.php',
+		autofocus: true,
+		// Scoped to whichever shop is currently selected on the receipt, if
+		// any — read live at query time so switching the Shop dropdown mid-
+		// receipt re-scopes the very next search without a page reload.
+		extraParams: function() { return { shop: $('#shop_content_id').val() }; },
+		onReset:  function() { setQtyModeOptions(null, false, null); },
+		onSelect: function(row) {
+			setQtyModeOptions(row.quantity_item, row.has_sgl, row.sgl_note);
+			$('#quantity').trigger('focus');
+		}
 	});
 }(jQuery));
 </script>
