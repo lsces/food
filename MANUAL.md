@@ -5,14 +5,13 @@ turns — see `CLAUDE.md`'s dated session log instead; this file only tracks cur
 
 ## Architecture overview
 
-Modeled closely on `stock` (see `stock/CLAUDE.md`) and reuses `liberty`'s xref machinery
+Modeled closely on `stock` (see `stock/MANUAL.md`) and reuses `liberty`'s xref machinery
 throughout (see `liberty/MANUAL.md` for how xref groups/items/templates work in general) — but a
 separate package, not an extension of `stock`, since food and stock may end up on different
 domains.
 
-Three content types, all pure `liberty_content` records — **no schema tables**, content_id only
-(see `[[feedback_content_id_only]]` memory: a table that only aliases content_id to a second
-sequential id is pointless).
+Three content types, all pure `liberty_content` records — **no schema tables**, content_id only. A
+table that only aliases content_id to a second sequential id would add nothing.
 
 - **`FoodComponent`** — a single food item (an ingredient, a ready meal, a branded product —
   anything with its own nutrition/quantity data). User-facing pages call these "Food Items"
@@ -90,14 +89,14 @@ Entirely separate axis from nutrition. Registered items:
   (a component is weight-tracked *or* volume-tracked, never both — storing one evicts the other).
   Set by the importer from `food_info.csv`'s own `metric_serving_amount`/`unit` where that basis
   is real (not the assumed-100g curation fallback, which doesn't tell you weight vs volume).
-- **`SGL`** — **`multiple=0`, an independent display-mode flag, not a competing type** (redesigned
-  2026-08-22 — originally `multiple=-2` alongside WT/VOL, which meant a component could only ever
-  be "counted" *or* "weighed", never both; real components need both, e.g. a multi-pack you
-  sometimes buy as "8 items" and sometimes need the real weight of). A component flagged `SGL`
-  shows its pantry stock as a derived count (`REM ÷ its own WT-or-VOL value`) instead of raw
-  grams; everything else shows `REM` directly as g/ml. `SGL`'s own `xkey_ext` doubles as a
-  free-text category note (e.g. "Ready Meal", "Pack of 8") — shown as `list_pantry.php`'s Note
-  column and as the label on `edit_movement.php`'s count-mode picker.
+- **`SGL`** — **`multiple=0`, an independent display-mode flag, not a competing type**: a
+  component can be both weight/volume-tracked *and* flagged `SGL` at once, since real components
+  need both representations (e.g. a multi-pack you sometimes buy as "8 items" and sometimes need
+  the real weight of). A component flagged `SGL` shows its pantry stock as a derived count (`REM ÷
+  its own WT-or-VOL value`) instead of raw grams; everything else shows `REM` directly as g/ml.
+  `SGL`'s own `xkey_ext` doubles as a free-text category note (e.g. "Ready Meal", "Pack of 8") —
+  shown as `list_pantry.php`'s Note column and as the label on `edit_movement.php`'s count-mode
+  picker.
 - **`PCK`** — a stored pack-size multiplier. Redundant under the current design (`WT`/`VOL`
   itself always holds the real divisor now) — left in the schema, nothing reads it.
 - **`REM`** — live remaining pantry balance, in whichever unit the component's own `WT`/`VOL`
@@ -106,15 +105,15 @@ Entirely separate axis from nutrition. Registered items:
   (no historical `movement_out` for anything before a stocktake baseline). Only
   `FoodMovement::adjustComponentRem()` writes it, always inside the same transaction as the
   triggering line add/remove/edit.
-  - **Dust threshold** (`adjustComponentRem()`'s `DUST_THRESHOLD_RATIO`, 0.25, 2026-08-24): a
-    consumption delta (negative) landing below 25% of the component's own declared `WT`/`VOL`
-    portion size zeroes `REM` instead of leaving a small remainder — a shrinking pack rarely gets
-    weighed out to the exact last gram, so a lingering "12g" isn't a real trackable amount. Applies
-    to any negative delta through this method (receipt reversals included), not just meal
-    consumption. A component with no declared `WT`/`VOL` falls back to a plain floor-at-zero.
-  - **Actual-delta tracking** (same date): `adjustComponentRem()` returns the delta it actually
-    applied (`new − old`), which can differ from the requested delta once floor-at-zero or the
-    dust threshold clamp it. `FoodAssembly`'s consuming call sites (`add_assembly_item.php`,
+  - **Dust threshold** (`adjustComponentRem()`'s `DUST_THRESHOLD_RATIO`, `0.25`): a consumption
+    delta (negative) landing below 25% of the component's own declared `WT`/`VOL` portion size
+    zeroes `REM` instead of leaving a small remainder — a shrinking pack rarely gets weighed out
+    to the exact last gram, so a lingering "12g" isn't a real trackable amount. Applies to any
+    negative delta through this method (receipt reversals included), not just meal consumption. A
+    component with no declared `WT`/`VOL` falls back to a plain floor-at-zero.
+  - **Actual-delta tracking**: `adjustComponentRem()` returns the delta it actually applied
+    (`new − old`), which can differ from the requested delta once floor-at-zero or the dust
+    threshold clamp it. `FoodAssembly`'s consuming call sites (`add_assembly_item.php`,
     `copy_assembly.php`) stash this actual value on the ingredient line itself, via that line's own
     `xkey_ext` (see `addItem()`'s `$pRemRestockAmount` param) — so a later reversal
     (`FoodAssembly::removeItem()`, `expunge()`) restocks exactly what was really taken, not the
@@ -180,17 +179,16 @@ item, item"` plus a kcal/fibre/5AD line), linking to `view_assembly.php`.
 `type` group as the five diary meal-types — not registered/built yet, only the diary types exist
 today.
 
-### Time storage — UTC, via `BitDate` (fixed 2026-08-22)
+### Time storage — UTC, via `BitDate`
 
 `event_time` (and `created`/`last_modified`) store true UTC, per the whole-stack convention.
 `edit_assembly.php`'s Time field reads/writes local (display-timezone) wall-clock time through
 `$gBitSystem->mServerTimestamp` (a `BitDate` instance): `getDisplayDateFromUTC()` to prefill the
 form, `getUTCFromDisplayDate()` to convert the typed value back to true UTC on save. Day-start
 computation uses `gmmktime()`, never `strtotime(gmdate(...))` — `BitDate`'s own conversion calls
-used to mutate PHP's global default timezone with no restore (fixed at the kernel level,
-`kernel` commit `3a71379` — see `reference_firebird_clock_and_bitweaver_tz` memory), so a bare
-`strtotime()` anywhere later in the same request risked silently re-interpreting a naive date
-string against the wrong timezone. `gmmktime()` sidesteps the whole class of bug regardless.
+would otherwise risk mutating PHP's global default timezone with no restore, which could make a
+bare `strtotime()` later in the same request silently reinterpret a naive date string against the
+wrong timezone. `gmmktime()` sidesteps the whole class of bug regardless.
 
 **Known residual gap, not fixed**: day-boundary grouping (`mealTypesTakenOnDay()` etc.) still
 computes midnight in *UTC* terms, not the user's local calendar day. A meal genuinely logged very
@@ -202,8 +200,8 @@ Low real-world impact (meal times aren't near midnight) — flagged, not address
 Date-only form — copies a source meal's full ingredient list (component/quantity/order) onto a
 chosen date, same meal type, time-of-day carried over from the source `event_time` numerically
 (`% 86400`, no timezone math — it's just shifting which day, not changing what the time means).
-Same day-uniqueness check as `changeMealType()`. Built specifically to speed up backfilling a
-repeating pattern (e.g. the same breakfast most days) — full-page retyping was "taking an age".
+Same day-uniqueness check as `changeMealType()`. Exists to speed up backfilling a repeating
+pattern (e.g. the same breakfast most days) without full-page retyping.
 
 ### Second-portion action
 
@@ -215,7 +213,7 @@ multi-portion UI.
 ### `getDisplayUrl()`
 
 `FoodAssembly::getDisplayUrl()`/`getDisplayUrlFromHash()` — `index.php`'s `content_id` dispatcher
-calls this to pick a redirect target; without it, a bare content_id link fell through to
+calls this to pick a redirect target; without it, a bare content_id link falls through to
 `LibertyContent`'s generic default instead of `view_assembly.php`. Mirrors the same override
 `FoodComponent`/`FoodMovement` already have.
 
@@ -229,10 +227,10 @@ into a day total — formatted strings like `"1.5g"` can't themselves be summed)
 ## FoodMovement (pantry receipts)
 
 `movement_in` only — receipts. `movement_out` (diary meal logged → `REM` decremented, or a
-recipe "used") is **not built** — the historical diary import deliberately does *not* generate
-movement rows at all; `FoodMovement` only starts existing from a manual stocktake baseline
-forward, otherwise 500+ days of consumption history would need reconciling against zero purchase
-history.
+recipe "used") is handled per-line by the mechanisms below, not as a separate bulk mechanism — the
+historical diary import deliberately does *not* generate movement rows at all; `FoodMovement` only
+starts existing from a manual stocktake baseline forward, otherwise 500+ days of consumption
+history would need reconciling against zero purchase history.
 
 **Schema**: `reference` group (`RECEIPT` item, `xref`→shop Contact, `xkey`=free-text reference,
 `start_date`=purchase date via a native `<input type="date">`, `data`=note) + `quantity` group
@@ -260,6 +258,19 @@ transaction —
   deleting the content record — there's no bulk shortcut, since each line might resolve to a
   different delta (`base` vs `sgl` mode).
 
+On the `FoodAssembly` side, the outbound half of pantry tracking works the same way, per-line
+rather than as one bulk method: `add_assembly_item.php` (manual add) and `copy_assembly.php`
+decrement `REM` via `FoodMovement::adjustComponentRem()` per item added; `FoodAssembly::
+updateItem()` (in-place quantity correction, `edit_assembly.tpl`'s per-row inline form),
+`removeItem()` (single-line remove, its Remove link), and `expunge()` (whole-meal delete,
+`view_assembly.tpl`'s Delete Meal floaticon → `edit_assembly.php`'s `delete` branch) all keep
+`REM` in sync on the way in and out — every ingredient-list mutation goes through one of these,
+none through generic `liberty/edit_xref.php`. CSV import (`ImportFoodIntake.php`, via
+`FoodAssembly::addItem()`) deliberately does NOT touch `REM` — those meals predate any pantry
+tracking baseline. See the `REM` xref group's own entry above for the dust-threshold/actual-delta-
+tracking mechanics that make every restock accurate rather than just re-adding the nominal logged
+quantity.
+
 **Component search** (`includes/lookup_component.php`, shared by `edit_movement.tpl`,
 `add_assembly_item.tpl`, and `edit_assembly.tpl`'s inline add — see below): returns `content_id`,
 `supplier` (disambiguates same-titled components from different shops — a real, common case since
@@ -268,28 +279,26 @@ supplier lives in its own `SUP` xref, not the title), `default_qty` (the compone
 picker), `display_url`, and an optional `?shop=<content_id>` filter (scopes results to components
 already tagged with that supplier — opt-in, no shop selected means unfiltered). `list_components.php`'s
 own find box uses the same live typeahead (a match can be clicked straight through to its view
-page instead of submit-then-scan) — three near-identical JS copies of this widget now exist
-(`list_components`/`edit_movement`/`edit_assembly`), a real duplication flagged in THOUGHTS.txt
-for extraction once `food_recipe` becomes the 4th real call site, not yet done.
+page instead of submit-then-scan) — three near-identical JS copies of this widget currently exist
+(`list_components`/`edit_movement`/`edit_assembly`), a real duplication worth extracting once a
+fourth real call site exists, not yet done.
 
 **Inline ingredient add** (`edit_assembly.tpl`, mirrors `edit_movement.tpl`'s own pattern) — the
-same search-dropdown + `qty_mode` picker as a new `fAddComponent` branch in `edit_assembly.php`,
-so a meal gets the same stay-on-page multi-item-add flow receipts already had, instead of
-bouncing out to `add_assembly_item.php` per ingredient. `SGL` entries convert to grams via the
-component's own declared `WT`/`VOL` weight before storage — the stored line is always a plain,
-later-editable gram figure; `SGL` is purely an entry-time convenience. `add_assembly_item.php`/
-`.tpl` stay in place as a working fallback, not replaced.
+same search-dropdown + `qty_mode` picker as a `fAddComponent` branch in `edit_assembly.php`, so a
+meal gets the same stay-on-page multi-item-add flow receipts already had, instead of bouncing out
+to `add_assembly_item.php` per ingredient. `SGL` entries convert to grams via the component's own
+declared `WT`/`VOL` weight before storage — the stored line is always a plain, later-editable
+gram figure; `SGL` is purely an entry-time convenience. `add_assembly_item.php`/`.tpl` stay in
+place as a working fallback, not replaced.
 
 ## UI conventions
 
 - **"Food Item" in every user-facing string** (page titles, headings, search placeholders, table
   columns, tooltips, form labels, validation errors) — file/class names still say `Component`
   throughout (`list_components.php`, `FoodComponent`), deliberately not renamed to match.
-- **"Ingredient"** was briefly kept as a separate term for a food item *within a meal* (`add_
-  assembly_item.php`'s button/heading), deliberately not touched by the 2026-08-22 rename sweep —
-  reconsidered 2026-08-23: that page's button/heading/link now say "Add Food Item" too, for
-  consistency with every other add/edit context. General descriptive text ("ingredient list", "No
-  ingredients recorded") is untouched — this only ever covered the "Add X" naming.
+- **"Ingredient"** is used only as general descriptive text ("ingredient list", "No ingredients
+  recorded"), not as an "Add X" button/heading label — those all say "Add Food Item" for
+  consistency across every add/edit context.
 - Native `<input type="date">`/`<input type="time">` for date/time entry (`copy_assembly.tpl`,
   `view_day.tpl`, `edit_movement.tpl`'s purchase date, `edit_assembly.tpl`'s Time field) — no
   vendored JS date-picker library is actually live anywhere in this codebase despite one sitting
@@ -317,26 +326,15 @@ Receipts on the right. Just the nav bar for now — a summary/dashboard content 
   (shortage threshold, opt-in like `5AD` — no row means never appears) that doesn't exist yet;
   design otherwise settled: `REM <= MIN` intersected with `SUP` includes shop X (no schema change
   needed for shop-filtering — `SUP` is already `multiple=1`, a component can genuinely have
-  several real suppliers). `list_components.php`'s own shop-filter dropdown (built 2026-08-22) is
-  a step toward this, not the generator itself.
+  several real suppliers). `list_components.php`'s own shop-filter dropdown is a step toward this,
+  not the generator itself.
 - **Receipt-copy** — mirroring `copy_assembly.php`'s pattern for `FoodMovement`. Parked, not
   scoped in detail.
 - **Recipe publish step** (`FoodAssembly` RECIPE content → myhomecloud, the public domain) — no
   cross-domain publish mechanism exists anywhere in the stack yet. Reclassified as a liberty-level
   project, not Food's own — Food would just be the first consumer.
-- **Modal quick-add UX** (`[[project_modal_quick_add_ux]]`) — replacing full-page add/edit flows
-  with popups. Cross-package (Stock/Food/Contact), also reclassified as liberty-level.
-- **~~`explodeFromAssembly()`~~ — now built, piecemeal, not as one method.** The outbound half of
-  pantry tracking: `add_assembly_item.php` (manual add) and `copy_assembly.php` decrement `REM` via
-  `FoodMovement::adjustComponentRem()` per item added; `FoodAssembly::updateItem()` (in-place
-  quantity correction, `edit_assembly.tpl`'s per-row inline form), `removeItem()` (single-line
-  remove, its Remove link) and `expunge()` (whole-meal delete, `view_assembly.tpl`'s Delete Meal
-  floaticon → `edit_assembly.php`'s `delete` branch) all keep REM in sync on the way in and out —
-  as of 2026-08-24 every ingredient-list mutation goes through one of these, none through generic
-  `liberty/edit_xref.php` any more. CSV import (`ImportFoodIntake.php`, via `FoodAssembly::addItem()`)
-  deliberately still does NOT touch `REM` — those meals predate any pantry tracking baseline. See
-  the REM xref group's own entry above for the dust-threshold/actual-delta-tracking mechanics that
-  make every restock accurate rather than just re-adding the nominal logged quantity.
+- **Modal quick-add UX** — replacing full-page add/edit flows with popups. Cross-package
+  (Stock/Food/Contact), also reclassified as liberty-level.
 
 ## Deployment topology
 
@@ -345,8 +343,8 @@ Private home is **rdmcloud** — live on desktop, srv9, and srv10, each with its
 editing site (tablet, browser); desktop is a working/dev copy, normally kept in sync via a
 nightly srv9→desktop restore cron — **never assume that restore covers same-day edits**; a full
 database reverse-sync (desktop→srv9) to push a schema/dev-state change can silently destroy
-anything entered on srv9 since the last nightly restore (real incident, 2026-08-22 — see
-`[[feedback_reverse_sync_data_loss]]` memory). Schema changes are still hand-pushed via isql
-directly into each machine's live DB (no upgrade-file/install-cycle path yet — the package
-predates that convention being needed). srv10 has the package installed but is generally the last
-machine to receive any given day's changes, often left pending.
+anything entered on srv9 since the last nightly restore, if srv9 has live activity the desktop
+side hasn't seen yet. Schema changes are still hand-pushed via isql directly into each machine's
+live DB (no upgrade-file/install-cycle path yet — the package predates that convention being
+needed). srv10 has the package installed but is generally the last machine to receive any given
+day's changes, often left pending.
