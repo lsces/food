@@ -66,13 +66,17 @@ curation rather than guessing.
   decimal-scale mg (potassium/calcium/iron never sensibly shown in g) and `VIT` already has
   genuinely mixed mcg/mg units baked into its own keys — a different problem this doesn't attempt
   to solve.
-- **`5AD`** (five-a-day) — a fixed portion-size *adjustment factor*, `xkey = true_portion_g / 80`
-  (`1` for a standard 80g portion, `0.375` for dried fruit's real 30g portion). Not a per-100g
-  additive nutrient like the other eight — `FoodComponent::scaleNutrition()` special-cases it:
-  `portions = grams / (80 × factor)`. Opt-in (no row = doesn't count toward five-a-day), no NHS
-  source data exists for this so it's entirely self-curated. **Known unmodelled gap**: NHS also
-  caps juice/smoothies and beans/pulses at 1 portion/day regardless of quantity — a per-category
-  daily cap, not expressible as a per-gram factor.
+- **`5AD`** (five-a-day) — a *density factor*: portions per standard 80g serving of this exact
+  food/dish (`1` for a standard whole portion; a mixed dish that's 50% relevant by weight is
+  `0.5`; a concentrated food like dried fruit, where a smaller-than-80g serving already counts as
+  a full portion, sits above 1, e.g. `~2.5`). Not a per-100g additive nutrient like the other
+  eight — `FoodComponent::scaleNutrition()` special-cases it: `portions = grams × factor / 80`.
+  Opt-in (no row = doesn't count toward five-a-day), no NHS source data exists for this so it's
+  entirely self-curated. **Revised 2026-09-03** — originally stored `true_portion_g / 80` (the
+  reciprocal of the above), which required entering the inverse of the natural quantity for any
+  mixed dish and was a repeated data-entry trap; flipped the formula rather than the mental model.
+  **Known unmodelled gap**: NHS also caps juice/smoothies and beans/pulses at 1 portion/day
+  regardless of quantity — a per-category daily cap, not expressible as a per-gram factor.
 
 **`FoodComponent::NUTRITION_SUMMARY_FIELDS`** is the canonical field list (Energy/Fat/Saturates/
 Carbohydrate/Sugars/Fibre/Protein/Sodium, UK front-of-pack order, `5AD` appended last) driving
