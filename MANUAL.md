@@ -293,10 +293,10 @@ the entry-mode picker), `display_url`, and an optional `?shop=<content_id>` filt
 to components already tagged with that supplier — opt-in, no shop selected means unfiltered).
 
 Three consumers — `edit_movement.tpl`, `add_assembly_item.tpl`, `edit_assembly.tpl`'s inline add
-(below) — now go through the same shared JS widget, `kernel/scripts/BitComponentTypeahead.js`
-(extracted 2026-09-01; see `kernel.md`), rather than each carrying its own copy of the debounce/
-dropdown/keyboard-nav logic. **`list_components.php`'s own find box deliberately stays a separate,
-local implementation** — same endpoint and JS pattern (debounce, sequence counter against
+(below) — now go through the same shared JS widget, `kernel/scripts/BitComponentTypeahead.js` (see
+`kernel.md`), rather than each carrying its own copy of the debounce/dropdown/keyboard-nav logic.
+**`list_components.php`'s own find box deliberately stays a separate, local implementation** —
+same endpoint and JS pattern (debounce, sequence counter against
 overlapping responses, arrow-key nav), but a click navigates straight to the matched component's
 view page instead of filling a form field, since that search exists to jump to (or rule out) an
 existing item, not to feed a quantity form elsewhere on the page — a genuinely different contract,
