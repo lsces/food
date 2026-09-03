@@ -79,7 +79,7 @@ $scalarFields = [
 	'FIBR' => [ 'kind' => 'scalar', 'label' => 'Fibre',        'suffix' => 'g',    'gramEntry' => true ],
 	'PROT' => [ 'kind' => 'scalar', 'label' => 'Protein',      'suffix' => 'g',    'gramEntry' => true ],
 	'SOD'  => [ 'kind' => 'salt' ],
-	'5AD'  => [ 'kind' => 'scalar', 'label' => 'Five-a-day (adjustment factor, true_portion_g/80)', 'suffix' => '', 'gramEntry' => false ],
+	'5AD'  => [ 'kind' => 'scalar', 'label' => 'Five-a-day factor (portions per 80g eaten — half-veg salad = 0.5, ~20%-relevant ready meal = 0.2, concentrated e.g. dried fruit = above 1)', 'suffix' => '', 'gramEntry' => false ],
 ];
 
 $existing = [];

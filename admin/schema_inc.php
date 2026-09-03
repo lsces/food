@@ -151,19 +151,26 @@ $xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,
 $xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`sort_order`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('VIT','foodcomponent','nutrition','Vitamins (mixed units, per 100g)',0,8,3,'','json-list','[\"vitamin_a_mcg\",\"vitamin_c_mg\",\"vitamin_d_mcg\"]')";
 $xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`sort_order`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('MIN','foodcomponent','nutrition','Minerals (mg, per 100g)',    0,9,3,'','json-list','[\"potassium_mg\",\"calcium_mg\",\"iron_mg\"]')";
 
-// 5AD — five-a-day adjustment factor (revised 2026-08-18, was a plain yes/no marker).
-// Row exists = counts toward five-a-day at all, no row = doesn't (unchanged). But the
-// stored xkey is now a decimal: true_portion_g / 80 — 1 for a standard 80g portion,
-// 0.375 for dried fruit's real 30g portion (0.375*80=30), etc. Always store an explicit
-// value when adding, never leave it blank — no default-if-blank handling anywhere, the
-// value is simply the adjustment factor for that food. Day total (not built) =
-// SUM(grams eaten that day / (80 * that component's 5AD value)) across flagged diary
-// items — equivalent to grams/true_portion_g per item. Reuses the generic 'text'
-// template, no custom UI needed — the existing Add/Delete/Edit mechanism already
-// handles an arbitrary decimal value fine. Known, deliberately unmodelled gap: NHS also
-// caps juice/smoothies and beans/pulses at 1 portion/day regardless of quantity eaten —
-// a per-category daily cap, not a per-gram adjustment, so this factor alone can't
-// express it; not addressed here.
+// 5AD — five-a-day adjustment factor (revised 2026-08-18, was a plain yes/no marker;
+// formula direction flipped again 2026-09-03, see below).
+// Row exists = counts toward five-a-day at all, no row = doesn't (unchanged). The
+// stored xkey is a decimal density factor: portions per standard 80g serving of this
+// exact food/dish. 1 = a standard 80g portion; a salad that's half real veg by weight
+// = 0.5; a ready meal where only ~20% is relevant = 0.2; a concentrated whole food
+// (e.g. dried fruit, where a smaller-than-80g serving already counts as a full
+// portion) sits above 1. Always store an explicit value when adding, never leave it
+// blank — no default-if-blank handling anywhere. Day total (not built) =
+// SUM(grams eaten that day / 80 * that component's 5AD value) across flagged diary
+// items. Reuses the generic 'text' template, no custom UI needed — the existing
+// Add/Delete/Edit mechanism already handles an arbitrary decimal value fine. Known,
+// deliberately unmodelled gap: NHS also caps juice/smoothies and beans/pulses at 1
+// portion/day regardless of quantity eaten — a per-category daily cap, not a
+// per-gram adjustment, so this factor alone can't express it; not addressed here.
+// **2026-09-03**: the original formula stored true_portion_g/80 (the RECIPROCAL of
+// the figure above), which required entering e.g. `2` for a half-relevant salad
+// instead of the natural `0.5` — a real, repeated data-entry trap. Flipped
+// FoodComponent::scaleNutrition() to multiply instead of divide, and every existing
+// xref row was migrated to match at the same time — see food.md's matching entry.
 $xrefItems[] = "INSERT INTO `{$X}liberty_xref_item` (`item`,`content_type_guid`,`x_group`,`cross_ref_title`,`multiple`,`sort_order`,`role_id`,`cross_ref_href`,`template`,`data`) VALUES ('5AD', 'foodcomponent','nutrition','Five-a-day adjustment (1=80g)', 0,10,3,'','text',NULL)";
 
 // ── foodcomponent-specific group (sort_order=1: quantity, moved ahead of nutrition

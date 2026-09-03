@@ -501,19 +501,31 @@ class FoodComponent extends LibertyContent {
 	/**
 	 * Scale a per-100g nutrition set (from getNutritionBatch()) to an actual gram
 	 * quantity — for the eight additive nutrients this is the obvious value*grams/100.
-	 * 5AD is deliberately different: it's not a per-100g amount, it's a fixed
-	 * portion-size adjustment factor (true_portion_g/80 — see admin/schema_inc.php),
-	 * so running it through the same linear scaling would be wrong. The correct
-	 * portions contributed by eating $pGrams of a food whose true portion size is
-	 * (80*factor)g is grams/(80*factor); 0 (not flagged) correctly gives 0 portions.
-	 * Once computed, portions ARE additive like everything else — sumNutrition()
-	 * needs no special case, only this one scaling step does.
+	 * 5AD is deliberately different: it's not a per-100g amount, it's a density
+	 * factor — portions per standard 80g serving of this exact food/dish (see
+	 * admin/schema_inc.php) — so running it through the same linear scaling would be
+	 * wrong. Portions contributed by eating $pGrams is ($pGrams/80)*factor; 0 (not
+	 * flagged) correctly gives 0 portions. Once computed, portions ARE additive like
+	 * everything else — sumNutrition() needs no special case, only this one scaling
+	 * step does.
+	 *
+	 * **Revised 2026-09-03** — flipped from the original grams/(80*factor) formula
+	 * (factor = true_portion_g/80, so smaller meant "more concentrated") to this
+	 * multiplicative one, because the original required entering the RECIPROCAL of
+	 * the natural quantity for a mixed dish and kept causing real data-entry
+	 * mistakes. Under this formula the factor reads naturally in both directions: a
+	 * salad that's half real veg by weight is `0.5` (not `2`); a ready meal that's
+	 * only ~20% relevant is `0.2` (not `5`); a concentrated whole food like dried
+	 * fruit, where a smaller-than-80g serving already counts as a full portion, is
+	 * correspondingly *above* 1 (e.g. ~2.5) rather than below it. All existing xref
+	 * rows were data-migrated to match at the same time this formula changed — see
+	 * food.md's matching dated entry, don't re-derive from the old formula.
 	 */
 	public static function scaleNutrition( array $pPer100g, float $pGrams ): array {
 		$ret = [];
 		foreach( $pPer100g as $key => $val ) {
 			if( $key === '5AD' ) {
-				$ret[$key] = $val > 0 ? $pGrams / ( 80 * $val ) : 0.0;
+				$ret[$key] = $pGrams * $val / 80;
 			} else {
 				$ret[$key] = (float)$val * $pGrams / 100;
 			}

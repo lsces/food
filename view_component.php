@@ -43,9 +43,9 @@ $gContent->getParsedData();
 // view_day.php/view_assembly.php's totals. Still run through scaleNutrition() at
 // 100g even though that's a no-op for the eight additive nutrients (value*100/100
 // = value, the stored basis unchanged) — it's NOT a no-op for 5AD, which needs the
-// scaling step to turn the raw stored adjustment factor into a meaningful "portions
-// per 100g" figure (e.g. dried fruit's 0.375 factor -> 100/(80*0.375) = 3.33
-// portions per 100g), consistent with the "per 100g" framing of this whole table.
+// scaling step to turn the raw stored density factor into a meaningful "portions
+// per 100g" figure (e.g. dried fruit's ~2.5 factor -> 100*2.5/80 = 3.1 portions per
+// 100g), consistent with the "per 100g" framing of this whole table.
 $nutritionRaw    = FoodComponent::getNutritionBatch( [ $gContent->mContentId ] )[$gContent->mContentId] ?? [];
 $nutritionPer100g = FoodComponent::scaleNutrition( $nutritionRaw, 100 );
 
