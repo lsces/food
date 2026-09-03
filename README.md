@@ -67,7 +67,8 @@ a one-off cleanup pass.
   salt-only entry field for sodium (UK labels show salt, not sodium — converted automatically)
 - A day view — a whole day's meals together with running nutrition totals, not one meal at a time
 - Meal management: edit a meal's logged time, copy a repeating meal onto a new date instead of
-  re-typing it, switch a meal's type
+  re-typing it, switch a meal's type, add ingredients inline via a live search/typeahead without
+  leaving the page
 - A pantry ledger (`FoodMovement`) — record receipts, draw stock down, see what's actually in the
   cupboard right now as either a raw weight/volume or a count (a multi-pack shows as "8", not
   "416g") depending on how you actually think about that item
@@ -97,7 +98,7 @@ complete "not yet built" list than the summary above.
 ## Requirements
 
 - [Bitweaver](https://github.com/lsces/bitweaver) 5.x
-- [`liberty`](https://github.com/lsces/liberty) package (≥ 5.0.1) — this package is built entirely
+- [`liberty`](https://github.com/lsces/liberty) package (≥ 5.0.2) — this package is built entirely
   on Liberty's generic content/xref framework, the same foundation the
   [`stock`](https://github.com/lsces/stock) package uses (Food's design deliberately mirrors
   Stock's throughout — same content-type/xref-group approach, same reasoning for what does and

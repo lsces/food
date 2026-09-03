@@ -53,16 +53,19 @@ curation rather than guessing.
 - **Compound JSON xref_items** (`liberty_xref.data`, a CLOB, one row each): `FAT` →
   `{total/saturated/mono/poly/trans/cholesterol}_mg`, `VIT` → `{vitamin_a_mcg, vitamin_c_mg,
   vitamin_d_mcg}` (genuinely mixed units per field — `_mcg`/`_mg` suffixes baked into the key
-  names rather than one blob-wide unit), `MIN` → `{potassium/calcium/iron}_mg`. Edited via a
-  food-package-local `template='json-list'` (own per-package template dispatch — no generic
-  liberty JSON-xref mechanism exists yet, built here first, promote to liberty only if a second
-  package wants it) for all three — the edit form is unaffected by the view-side split below.
+  names rather than one blob-wide unit), `MIN` → `{potassium/calcium/iron}_mg`. Edited via
+  `template='json-list'` for all three — liberty's own **generic** xref template (see
+  `liberty/MANUAL.md`'s xref-template table), not a food-local one; Food registers each item's
+  full key list via `liberty_xref_item.data` (liberty's hint-array mechanism) so the edit form
+  knows about a key even when the stored blob is sparse. The edit form is unaffected by the
+  view-side split below.
 
   **View-side split, `FAT` only**: `FAT`'s row-list display uses `template='json-list-mgg'`
-  (`view_json-list-mgg_item.tpl`) instead of plain `json-list` — same `>=1000mg → "X.Xg"`
-  threshold as `formatMg()`, applied per sub-field, with the `_mg`/`_mcg` suffix stripped from the
-  key before building the row label (so "Total"/"Saturated" stay accurate once the displayed unit
-  can flip). `MIN` and `VIT` stay on plain `json-list` display deliberately: `MIN`'s values are
+  (`view_json-list-mgg_item.tpl`, food-local) instead of plain `json-list` — same
+  `>=1000mg → "X.Xg"` threshold as `formatMg()`, applied per sub-field, with the `_mg`/`_mcg`
+  suffix stripped from the key before building the row label (so "Total"/"Saturated" stay accurate
+  once the displayed unit can flip). `MIN` and `VIT` stay on plain `json-list` display
+  deliberately: `MIN`'s values are
   decimal-scale mg (potassium/calcium/iron never sensibly shown in g) and `VIT` already has
   genuinely mixed mcg/mg units baked into its own keys — a different problem this doesn't attempt
   to solve.
@@ -72,11 +75,9 @@ curation rather than guessing.
   a full portion, sits above 1, e.g. `~2.5`). Not a per-100g additive nutrient like the other
   eight — `FoodComponent::scaleNutrition()` special-cases it: `portions = grams × factor / 80`.
   Opt-in (no row = doesn't count toward five-a-day), no NHS source data exists for this so it's
-  entirely self-curated. **Revised 2026-09-03** — originally stored `true_portion_g / 80` (the
-  reciprocal of the above), which required entering the inverse of the natural quantity for any
-  mixed dish and was a repeated data-entry trap; flipped the formula rather than the mental model.
-  **Known unmodelled gap**: NHS also caps juice/smoothies and beans/pulses at 1 portion/day
-  regardless of quantity — a per-category daily cap, not expressible as a per-gram factor.
+  entirely self-curated. **Known unmodelled gap**: NHS also caps juice/smoothies and beans/pulses
+  at 1 portion/day regardless of quantity — a per-category daily cap, not expressible as a
+  per-gram factor.
 
 **`FoodComponent::NUTRITION_SUMMARY_FIELDS`** is the canonical field list (Energy/Fat/Saturates/
 Carbohydrate/Sugars/Fibre/Protein/Sodium, UK front-of-pack order, `5AD` appended last) driving
@@ -135,6 +136,15 @@ and Waitrose over time), `xref` = the supplier's Contact `content_id`, `xkey`=Pr
 `xkey_ext`=Price, `data`=free note. Own group template (`template='sup'`), not the generic
 `list_xref.tpl` — a supplier row needs Supplier/Price/Note columns, not the generic Type/Value/
 Notes shape.
+
+**`add_supplier.php`** bypasses `liberty/add_xref.php` entirely and writes the xref directly via
+`storeXref()` — the generic add-xref form has no way to set an `xref` (linked-content) field at
+all, for any package (see `liberty/MANUAL.md`'s "add_xref.php has no xref field" section for the
+full picture and why this is a deliberate, closed design decision rather than an open gap — every
+package needing this builds its own small `add_X.php`, mirroring `stock/add_supplier.php`'s own
+version of the same workaround). Plain `<select>` dropdown here rather than a JS typeahead —
+Food's real supplier list is deliberately small (the known shops added as Contacts, ~10), a
+dropdown is the better fit while it stays that size.
 
 `foodMatchSupplier()` (in the `food_info` importer) resolves Samsung's bracketed supplier suffix
 in the title (`"Ice cream sandwich (Gelatelli)"`) to a real `SUP` xref via an explicit-alias table
@@ -275,17 +285,22 @@ tracking baseline. See the `REM` xref group's own entry above for the dust-thres
 tracking mechanics that make every restock accurate rather than just re-adding the nominal logged
 quantity.
 
-**Component search** (`includes/lookup_component.php`, shared by `edit_movement.tpl`,
-`add_assembly_item.tpl`, and `edit_assembly.tpl`'s inline add — see below): returns `content_id`,
-`supplier` (disambiguates same-titled components from different shops — a real, common case since
-supplier lives in its own `SUP` xref, not the title), `default_qty` (the component's own `WT`/
-`VOL` value, prefills Quantity), `quantity_item`/`has_sgl`/`sgl_note` (drive the entry-mode
-picker), `display_url`, and an optional `?shop=<content_id>` filter (scopes results to components
-already tagged with that supplier — opt-in, no shop selected means unfiltered). `list_components.php`'s
-own find box uses the same live typeahead (a match can be clicked straight through to its view
-page instead of submit-then-scan) — three near-identical JS copies of this widget currently exist
-(`list_components`/`edit_movement`/`edit_assembly`), a real duplication worth extracting once a
-fourth real call site exists, not yet done.
+**Component search** (`includes/lookup_component.php`, one shared PHP endpoint): returns
+`content_id`, `supplier` (disambiguates same-titled components from different shops — a real,
+common case since supplier lives in its own `SUP` xref, not the title), `default_qty` (the
+component's own `WT`/`VOL` value, prefills Quantity), `quantity_item`/`has_sgl`/`sgl_note` (drive
+the entry-mode picker), `display_url`, and an optional `?shop=<content_id>` filter (scopes results
+to components already tagged with that supplier — opt-in, no shop selected means unfiltered).
+
+Three consumers — `edit_movement.tpl`, `add_assembly_item.tpl`, `edit_assembly.tpl`'s inline add
+(below) — now go through the same shared JS widget, `kernel/scripts/BitComponentTypeahead.js`
+(extracted 2026-09-01; see `kernel.md`), rather than each carrying its own copy of the debounce/
+dropdown/keyboard-nav logic. **`list_components.php`'s own find box deliberately stays a separate,
+local implementation** — same endpoint and JS pattern (debounce, sequence counter against
+overlapping responses, arrow-key nav), but a click navigates straight to the matched component's
+view page instead of filling a form field, since that search exists to jump to (or rule out) an
+existing item, not to feed a quantity form elsewhere on the page — a genuinely different contract,
+not unfinished deduplication.
 
 **Inline ingredient add** (`edit_assembly.tpl`, mirrors `edit_movement.tpl`'s own pattern) — the
 same search-dropdown + `qty_mode` picker as a `fAddComponent` branch in `edit_assembly.php`, so a
@@ -305,9 +320,8 @@ place as a working fallback, not replaced.
   consistency across every add/edit context.
 - Native `<input type="date">`/`<input type="time">` for date/time entry (`copy_assembly.tpl`,
   `view_day.tpl`, `edit_movement.tpl`'s purchase date, `edit_assembly.tpl`'s Time field) — no
-  vendored JS date-picker library is actually live anywhere in this codebase despite one sitting
-  unused in `config/themes/bootstrap/`; native inputs need zero extra wiring and give unambiguous
-  ISO values on submit.
+  vendored JS date-picker library is live anywhere in this codebase; native inputs need zero extra
+  wiring and give unambiguous ISO values on submit.
 - Icon-only inline actions use `class="btn btn-link"` (no button box/border), matching
   `comments.tpl`/Stock's print buttons — not `btn-default`, which reads as a heavier action.
 - **Supplier/shop names shown as `[brackets]`, not `(parens)`** (`list_pantry.tpl`,
