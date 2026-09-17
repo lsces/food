@@ -55,10 +55,11 @@ if( !empty( $_REQUEST['save'] ) ) {
 		$shopId  = !empty( $_REQUEST['shop_content_id'] ) && is_numeric( $_REQUEST['shop_content_id'] ) ? (int)$_REQUEST['shop_content_id'] : null;
 		$refKey  = trim( $_REQUEST['ref_key'] ?? '' );
 		$note    = trim( $_REQUEST['note'] ?? '' );
-		// type="date" always submits unambiguous ISO Y-m-d — no custom dd/mm
-		// parser needed (see copy_assembly.php's identical strtotime() use).
-		$dateStr = trim( $_REQUEST['purchase_date'] ?? '' );
-		$purDate = $dateStr ? ( strtotime( $dateStr ) ?: null ) : null;
+		// type="date" submits unambiguous ISO Y-m-d - a calendar date, not an instant, so
+		// UTC-midnight for that date (matching FoodDay's own gmmktime(0,0,0,...) convention),
+		// not a display-timezone conversion.
+		$dateParts = array_map( 'intval', explode( '-', trim( $_REQUEST['purchase_date'] ?? '' ) ) );
+		$purDate = count( $dateParts ) === 3 ? gmmktime( 0, 0, 0, $dateParts[1], $dateParts[2], $dateParts[0] ) : null;
 		$gContent->setReceiptReference( $shopId, $refKey, $purDate, $note );
 		header( 'Location: '.FOOD_PKG_URL.'edit_movement.php?content_id='.$gContent->mContentId );
 		die;
@@ -130,17 +131,10 @@ if( !empty( $_REQUEST['save'] ) ) {
 
 $shops = LibertyContent::listContentByXrefItem( 'B04', 'contactbusiness' );
 
-// ref_start_date is already a raw UTC epoch int (liberty_xref.start_date - see
-// LibertyXref::verify()'s own getUTCFromDisplayDate() handling), not a date string -
-// strtotime() on a bare epoch-looking numeric string returns false, not the epoch itself,
-// which date() then silently casts to 0 (1970-01-01). Same bug/fix as stock/edit_movement.php.
-$purchaseDateVal = !empty( $gContent->mInfo['ref_start_date'] )
-	? date( 'Y-m-d', (int)$gContent->mInfo['ref_start_date'] ) : '';
-
 $gBitSmarty->assign( 'gContent',        $gContent );
 $gBitSmarty->assign( 'shops',           $shops );
 $gBitSmarty->assign( 'lines',           $gContent->getLines() );
-$gBitSmarty->assign( 'purchaseDateVal', $purchaseDateVal );
+$gBitSmarty->assign( 'purchaseDateVal', !empty( $gContent->mInfo['ref_start_date'] ) ? gmdate( 'Y-m-d', $gContent->mInfo['ref_start_date'] ) : '' );
 $gBitSmarty->assign( 'errors',          $gContent->mErrors );
 $gBitSmarty->assign( 'addErrors',       $addErrors );
 
