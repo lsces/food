@@ -130,8 +130,12 @@ if( !empty( $_REQUEST['save'] ) ) {
 
 $shops = LibertyContent::listContentByXrefItem( 'B04', 'contactbusiness' );
 
+// ref_start_date is already a raw UTC epoch int (liberty_xref.start_date - see
+// LibertyXref::verify()'s own getUTCFromDisplayDate() handling), not a date string -
+// strtotime() on a bare epoch-looking numeric string returns false, not the epoch itself,
+// which date() then silently casts to 0 (1970-01-01). Same bug/fix as stock/edit_movement.php.
 $purchaseDateVal = !empty( $gContent->mInfo['ref_start_date'] )
-	? date( 'Y-m-d', strtotime( $gContent->mInfo['ref_start_date'] ) ) : '';
+	? date( 'Y-m-d', (int)$gContent->mInfo['ref_start_date'] ) : '';
 
 $gBitSmarty->assign( 'gContent',        $gContent );
 $gBitSmarty->assign( 'shops',           $shops );
