@@ -22,7 +22,7 @@ $apply = !empty( $_REQUEST['apply'] );
 
 $rows = $gBitDb->getAll(
 	"SELECT `content_id`, `title` FROM `".BIT_DB_PREFIX."liberty_content`
-	 WHERE `content_type_guid` = '".FOODMOVEMENT_CONTENT_TYPE_GUID."' ORDER BY `content_id`"
+	 WHERE `content_type_guid` = 'foodmovement' ORDER BY `content_id`"
 );
 
 $changes = [];
