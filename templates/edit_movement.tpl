@@ -17,7 +17,7 @@
 			<div class="form-group">
 				{formlabel label="Title" for="title"}
 				{forminput}
-					<input type="text" class="form-control" name="title" id="title" value="{$gContent->getTitle()|escape}" placeholder="{tr}Receipt — YYYY-MM-DD{/tr}" />
+					<input type="text" class="form-control" name="title" id="title" value="{$gContent->getTitle()|escape}" placeholder="{tr}Shop-YYYY-MM-DD (filled in if left blank){/tr}" />
 				{/forminput}
 			</div>
 

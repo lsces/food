@@ -46,20 +46,23 @@ if( $gContent->isValid() ) {
 $addErrors = [];
 
 if( !empty( $_REQUEST['save'] ) ) {
+	$shopId  = !empty( $_REQUEST['shop_content_id'] ) && is_numeric( $_REQUEST['shop_content_id'] ) ? (int)$_REQUEST['shop_content_id'] : null;
+	$refKey  = trim( $_REQUEST['ref_key'] ?? '' );
+	$note    = trim( $_REQUEST['note'] ?? '' );
+	// type="date" submits unambiguous ISO Y-m-d - a calendar date, not an instant, so
+	// UTC-midnight for that date (matching FoodDay's own gmmktime(0,0,0,...) convention),
+	// not a display-timezone conversion.
+	$dateParts = array_map( 'intval', explode( '-', trim( $_REQUEST['purchase_date'] ?? '' ) ) );
+	$purDate = count( $dateParts ) === 3 ? gmmktime( 0, 0, 0, $dateParts[1], $dateParts[2], $dateParts[0] ) : null;
+
 	$title = trim( $_REQUEST['title'] ?? '' );
 	if( $title === '' ) {
-		$title = KernelTools::tra( 'Receipt' ).' — '.date( 'Y-m-d' );
+		// Default title: shop name + purchase date (YYYY-MM-DD), today's date if none entered.
+		$shopTitle = $shopId ? $gContent->mDb->getOne( "SELECT `title` FROM `".BIT_DB_PREFIX."liberty_content` WHERE `content_id` = ?", [ $shopId ] ) : '';
+		$title = trim( ( $shopTitle ?: KernelTools::tra( 'Receipt' ) ).'-'.( $purDate ? gmdate( 'Y-m-d', $purDate ) : date( 'Y-m-d' ) ) );
 	}
 	$pHash = [ 'title' => $title ];
 	if( $gContent->store( $pHash ) ) {
-		$shopId  = !empty( $_REQUEST['shop_content_id'] ) && is_numeric( $_REQUEST['shop_content_id'] ) ? (int)$_REQUEST['shop_content_id'] : null;
-		$refKey  = trim( $_REQUEST['ref_key'] ?? '' );
-		$note    = trim( $_REQUEST['note'] ?? '' );
-		// type="date" submits unambiguous ISO Y-m-d - a calendar date, not an instant, so
-		// UTC-midnight for that date (matching FoodDay's own gmmktime(0,0,0,...) convention),
-		// not a display-timezone conversion.
-		$dateParts = array_map( 'intval', explode( '-', trim( $_REQUEST['purchase_date'] ?? '' ) ) );
-		$purDate = count( $dateParts ) === 3 ? gmmktime( 0, 0, 0, $dateParts[1], $dateParts[2], $dateParts[0] ) : null;
 		$gContent->setReceiptReference( $shopId, $refKey, $purDate, $note );
 		header( 'Location: '.FOOD_PKG_URL.'edit_movement.php?content_id='.$gContent->mContentId );
 		die;

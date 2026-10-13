@@ -16,6 +16,11 @@ global $gBitSystem, $gBitSmarty;
 $gBitSystem->verifyPackage( 'food' );
 $gBitSystem->verifyPermission( 'p_food_view' );
 
+// Open on the latest purchases first; any column heading click overrides this.
+if( empty( $_REQUEST['sort_mode'] ) ) {
+	$_REQUEST['sort_mode'] = 'ref_start_date_desc';
+}
+
 $movement     = new FoodMovement();
 $movementList = $movement->getList( $_REQUEST );
 

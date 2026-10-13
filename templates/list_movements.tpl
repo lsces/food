@@ -21,9 +21,9 @@
 		<table class="table table-striped table-hover">
 			<thead>
 				<tr>
-					<th>{smartlink ititle="Title" isort="title" idefault=1 icontrol=$listInfo}</th>
+					<th>{smartlink ititle="Title" isort="title" icontrol=$listInfo}</th>
 					<th>{tr}Shop{/tr}</th>
-					<th>{smartlink ititle="Date" isort="last_modified" icontrol=$listInfo}</th>
+					<th>{smartlink ititle="Purchased" isort="ref_start_date" idefault=1 icontrol=$listInfo}</th>
 				</tr>
 			</thead>
 			<tbody>
@@ -31,7 +31,7 @@
 					<tr>
 						<td><a href="{$mv.display_url|escape}">{$mv.title|escape}</a></td>
 						<td>{$mv.ref_contact_name|default:'—'|escape}</td>
-						<td>{$mv.last_modified|bit_short_date}</td>
+						<td>{$mv.purchase_date|escape}</td>
 					</tr>
 				{foreachelse}
 					<tr><td colspan="3" class="norecords">{tr}No movements found.{/tr}</td></tr>

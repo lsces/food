@@ -37,9 +37,17 @@
 						<td><a href="{$p.display_url|escape}">{$p.title|escape}</a>{if $p.supplier_title} [{$p.supplier_title|escape}]{/if}</td>
 						<td>{$p.display_quantity|escape}{$p.display_unit|escape}</td>
 						<td>{$p.note|escape}</td>
+						{if $gBitUser->hasPermission('p_food_update')}
+						<td>
+							<form method="post" action="" class="form-inline" onsubmit="return confirm('{tr}Clear this item from the pantry? Use this for stock that was used but never recorded.{/tr}');">
+								<input type="hidden" name="clear_rem" value="{$p.content_id}" />
+								<button type="submit" class="btn btn-link btn-xs" title="{tr}Clear from pantry{/tr}">{biticon ipackage="icons" iname="edit-clear" iexplain="Clear from pantry"}</button>
+							</form>
+						</td>
+						{/if}
 					</tr>
 				{foreachelse}
-					<tr><td colspan="3" class="norecords">{tr}Nothing currently tracked as in stock.{/tr}</td></tr>
+					<tr><td colspan="4" class="norecords">{tr}Nothing currently tracked as in stock.{/tr}</td></tr>
 				{/foreach}
 			</tbody>
 		</table>

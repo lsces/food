@@ -19,7 +19,20 @@ global $gBitSystem, $gBitSmarty, $gBitDb;
 $gBitSystem->verifyPackage( 'food' );
 $gBitSystem->verifyPermission( 'p_food_view' );
 
-$find = trim( $_REQUEST['find'] ?? '' );
+// Clear button — zero an item's REM when it was never recorded as used (stock that
+// never cleared through a meal). Goes through the xref helper, not raw SQL, so the
+// change keeps its history row.
+if( !empty( $_POST['clear_rem'] ) && is_numeric( $_POST['clear_rem'] ) ) {
+	$gBitSystem->verifyPermission( 'p_food_update' );
+	$clearId = (int)$_POST['clear_rem'];
+	if( $gBitDb->getOne( "SELECT COUNT(*) FROM `".BIT_DB_PREFIX."liberty_content` WHERE `content_id` = ? AND `content_type_guid` = 'foodcomponent'", [ $clearId ] ) ) {
+		LibertyContent::upsertXrefByContentId( $clearId, 'REM', [ 'xkey' => '0' ] );
+	}
+	header( 'Location: '.FOOD_PKG_URL.'list_pantry.php'.( !empty( $_SERVER['QUERY_STRING'] ) ? '?'.$_SERVER['QUERY_STRING'] : '' ) );
+	die;
+}
+
+$find =trim( $_REQUEST['find'] ?? '' );
 $bindVars = [];
 $findSql = '';
 if( $find !== '' ) {

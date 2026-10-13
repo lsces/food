@@ -527,10 +527,18 @@ class FoodMovement extends LibertyContent {
 
 		$this->getServicesSql( 'content_list_sql_function', $selectSql, $joinSql, $whereSql, $bindVars );
 
+		// Purchase date, falling back to creation time for a receipt with none set, so
+		// the list reads in the order things were bought, not the order they were last edited.
+		$purchaseDateSql = "COALESCE( (SELECT FIRST 1 x.`start_date` FROM `".BIT_DB_PREFIX."liberty_xref` x
+				WHERE x.`content_id` = lc.`content_id` AND x.`item` = 'RECEIPT'), lc.`created` )";
 		$sortMode = $pListHash['sort_mode'] ?? '';
-		$orderby = !empty( $sortMode )
-			? ' ORDER BY '.$this->mDb->convertSortmode( $sortMode )
-			: ' ORDER BY lc.`last_modified` DESC';
+		if( in_array( $sortMode, [ 'ref_start_date_asc', 'ref_start_date_desc' ], true ) ) {
+			$orderby = ' ORDER BY '.$purchaseDateSql.( $sortMode === 'ref_start_date_asc' ? ' ASC' : ' DESC' );
+		} elseif( !empty( $sortMode ) ) {
+			$orderby = ' ORDER BY '.$this->mDb->convertSortmode( $sortMode );
+		} else {
+			$orderby = ' ORDER BY '.$purchaseDateSql.' DESC';
+		}
 
 		if( !empty( $whereSql ) ) {
 			$whereSql = substr_replace( $whereSql, ' WHERE ', 0, 4 );
@@ -563,6 +571,11 @@ class FoodMovement extends LibertyContent {
 		if( $rows = $this->mDb->query( $query, $bindVars, $pListHash['max_records'], $pListHash['offset'] ) ) {
 			foreach( $rows as $row ) {
 				$row['display_url']      = static::getDisplayUrlFromHash( $row );
+				// Purchase Date is a calendar date stored as UTC midnight (see edit_movement.php),
+				// so format in UTC; receipts with none fall back to when they were created.
+				$row['purchase_date']    = !empty( $row['ref_start_date'] )
+					? gmdate( 'Y-m-d', (int)$row['ref_start_date'] )
+					: date( 'Y-m-d', (int)$row['created'] );
 				$ret[$row['content_id']] = $row;
 			}
 		}
