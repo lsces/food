@@ -53,13 +53,14 @@ if( !empty( $_REQUEST['save'] ) ) {
 	// UTC-midnight for that date (matching FoodDay's own gmmktime(0,0,0,...) convention),
 	// not a display-timezone conversion.
 	$dateParts = array_map( 'intval', explode( '-', trim( $_REQUEST['purchase_date'] ?? '' ) ) );
-	$purDate = count( $dateParts ) === 3 ? gmmktime( 0, 0, 0, $dateParts[1], $dateParts[2], $dateParts[0] ) : null;
+	// Left blank, the purchase date is today - the same day the default title already uses.
+	$purDate = count( $dateParts ) === 3 ? gmmktime( 0, 0, 0, $dateParts[1], $dateParts[2], $dateParts[0] ) : gmmktime( 0, 0, 0, (int)date( 'n' ), (int)date( 'j' ), (int)date( 'Y' ) );
 
 	$title = trim( $_REQUEST['title'] ?? '' );
 	if( $title === '' ) {
-		// Default title: shop name + purchase date (YYYY-MM-DD), today's date if none entered.
+		// Default title: shop name + purchase date (YYYY-MM-DD).
 		$shopTitle = $shopId ? $gContent->mDb->getOne( "SELECT `title` FROM `".BIT_DB_PREFIX."liberty_content` WHERE `content_id` = ?", [ $shopId ] ) : '';
-		$title = trim( ( $shopTitle ?: KernelTools::tra( 'Receipt' ) ).'-'.( $purDate ? gmdate( 'Y-m-d', $purDate ) : date( 'Y-m-d' ) ) );
+		$title = trim( ( $shopTitle ?: KernelTools::tra( 'Receipt' ) ).'-'.gmdate( 'Y-m-d', $purDate ) );
 	}
 	$pHash = [ 'title' => $title ];
 	if( $gContent->store( $pHash ) ) {
@@ -137,7 +138,7 @@ $shops = LibertyContent::listContentByXrefItem( 'B04', 'contactbusiness' );
 $gBitSmarty->assign( 'gContent',        $gContent );
 $gBitSmarty->assign( 'shops',           $shops );
 $gBitSmarty->assign( 'lines',           $gContent->getLines() );
-$gBitSmarty->assign( 'purchaseDateVal', !empty( $gContent->mInfo['ref_start_date'] ) ? gmdate( 'Y-m-d', $gContent->mInfo['ref_start_date'] ) : '' );
+$gBitSmarty->assign( 'purchaseDateVal', !empty( $gContent->mInfo['ref_start_date'] ) ? gmdate( 'Y-m-d', $gContent->mInfo['ref_start_date'] ) : ( $gContent->isValid() ? '' : date( 'Y-m-d' ) ) );
 $gBitSmarty->assign( 'errors',          $gContent->mErrors );
 $gBitSmarty->assign( 'addErrors',       $addErrors );
 
